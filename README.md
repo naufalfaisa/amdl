@@ -5,7 +5,7 @@ Supports album, single, and playlist URLs, with options for lyric extraction and
 ### Make sure to install [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)，and confirm [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/) correctly added to environment variables
 
 ## How to use
-1. Make sure the decryption program [wrapper](https://github.com/zhaarey/wrapper) is running
+1. Make sure the decryption program [wrapper](https://github.com/naufalfaisa/wrapper) is running
 2. Start downloading some albums: `go run main.go https://music.apple.com/us/album/whenever-you-need-somebody-2022-remaster/1624945511`.
 3. Start downloading single song: `go run main.go --song https://music.apple.com/us/album/never-gonna-give-you-up-2022-remaster/1624945511?i=1624945512` or `go run main.go https://music.apple.com/us/song/you-move-me-2022-remaster/1624945520`.
 4. Start downloading select: `go run main.go --select https://music.apple.com/us/album/whenever-you-need-somebody-2022-remaster/1624945511` input numbers separated by spaces.
