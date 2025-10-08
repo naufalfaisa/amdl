@@ -1,7 +1,7 @@
 package structs
 
 type ConfigSet struct {
-	Storefront              string `yaml:"storefront"` 
+	Storefront              string `yaml:"storefront"`
 	MediaUserToken          string `yaml:"media-user-token"`
 	AuthorizationToken      string `yaml:"authorization-token"`
 	Language                string `yaml:"language"`
@@ -46,6 +46,7 @@ type Counter struct {
 	Error       int
 	Success     int
 	Total       int
+	TotalSize   int64
 }
 
 // 艺术家页面
