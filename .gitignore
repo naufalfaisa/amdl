@@ -1,10 +1,21 @@
+# Ignore everything by default
 *
+
+# Ignore all local config files
+config.yaml
+
+# Keep the template in repo
+!config.example.yaml
+
+# But keep specific files
 !.gitignore
 !agent.js
 !agent-arm64.js
+!main.go
 !go.mod
 !go.sum
-!main.go
 !README.md
+
+# Keep utils folder and all its content
 !utils/
 !utils/**

@@ -31,6 +31,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/grafov/m3u8"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/pflag"
 	"github.com/zhaarey/go-mp4tag"
 	"gopkg.in/yaml.v2"
@@ -218,31 +219,40 @@ func checkArtist(artistUrl string, token string, relationship string) ([]string,
 	// Display all available items
 	c := cases.Title(language.English)
 	fmt.Println("\nAvailable " + c.String(relationship) + ":")
-	fmt.Printf("%-5s %-60s %-12s %-20s\n", "NO.", "NAME", "DATE", "ID")
+
+	// Create table
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"NO.", "NAME", "DATE", "ID"})
+	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetColWidth(50)
+	table.SetNoWhiteSpace(true)
+	table.SetBorder(false)
+	table.SetHeaderLine(false)
+	table.SetColumnSeparator("  ")
+	table.SetCenterSeparator("")
+	table.SetTablePadding("\t")
 
 	for i, v := range options {
-		name := v[0]
-		nameRunes := []rune(name)
-		// Handle long names by wrapping
-		if len(nameRunes) <= 60 {
-			fmt.Printf("%-5d %-60s %-12s %-20s\n", i+1, name, v[1], v[2])
-		} else {
-			fmt.Printf("%-5d %-60s %-12s %-20s\n", i+1, string(nameRunes[:60]), v[1], v[2])
+		name := strings.TrimSpace(v[0])
 
-			remaining := nameRunes[60:]
-			for len(remaining) > 0 {
-				if len(remaining) <= 60 {
-					fmt.Printf("%-5s %-60s\n", "", string(remaining))
-					break
-				} else {
-					fmt.Printf("%-5s %-60s\n", "", string(remaining[:60]))
-					remaining = remaining[60:]
-				}
-			}
+		// Truncate long names with ellipsis
+		if len(name) > 50 { // Match col width
+			name = name[:47] + "..."
 		}
 
+		table.Append([]string{
+			fmt.Sprintf("%d", i+1),
+			name,
+			v[1],
+			v[2],
+		})
 		urls = append(urls, v[3])
 	}
+
+	table.Render()
 
 	// Automatically select all if artist_select flag is true
 	if artist_select {
@@ -258,7 +268,7 @@ func checkArtist(artistUrl string, token string, relationship string) ([]string,
 	input = strings.TrimSpace(input)
 
 	if input == "" {
-		fmt.Println("No option selected, skipping...")
+		fmt.Println("No options selected, skipped...")
 		return []string{}, nil
 	}
 	if input == "all" {
@@ -279,7 +289,7 @@ func checkArtist(artistUrl string, token string, relationship string) ([]string,
 	}
 
 	// Process user-selected indices
-	fmt.Println("You have selected the following options:")
+	fmt.Println("\nYou have selected the following options:")
 	for _, opt := range selectedOptions {
 		if len(opt) == 1 {
 			num, err := strconv.Atoi(opt[0])
@@ -1190,7 +1200,6 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 	if dl_aac {
 		singerFolder = filepath.Join(Config.AacSaveFolder, forbiddenNames.ReplaceAllString(singerFoldername, "_"))
 	}
-	os.MkdirAll(singerFolder, os.ModePerm)
 	album.SaveDir = singerFolder
 
 	// Extract quality information for folder naming
@@ -1281,11 +1290,69 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 	}
 	albumFolderName = strings.TrimSpace(albumFolderName)
 	albumFolderPath := filepath.Join(singerFolder, forbiddenNames.ReplaceAllString(albumFolderName, "_"))
-	os.MkdirAll(albumFolderPath, os.ModePerm)
 	album.SaveName = albumFolderName
 	fmt.Println(albumFolderName)
 
 	// Save artist cover image if configured
+	trackTotal := len(meta.Data[0].Relationships.Tracks.Data)
+	arr := make([]int, trackTotal)
+	for i := range trackTotal {
+		arr[i] = i + 1
+	}
+
+	// Handle single song download mode
+	if dl_song {
+		if urlArg_i == "" {
+			// No specific track ID provided in URL
+		} else {
+			// Find and download the specific track
+			for i := range album.Tracks {
+				if urlArg_i == album.Tracks[i].ID {
+					os.MkdirAll(singerFolder, os.ModePerm)
+					os.MkdirAll(albumFolderPath, os.ModePerm)
+
+					if Config.SaveArtistCover {
+						if len(meta.Data[0].Relationships.Artists.Data) > 0 {
+							_, err = writeCover(singerFolder, "folder", meta.Data[0].Relationships.Artists.Data[0].Attributes.Artwork.Url)
+							if err != nil {
+								fmt.Println("Failed to write artist cover.")
+							}
+						}
+					}
+
+					covPath, err := writeCover(albumFolderPath, "cover", meta.Data[0].Attributes.Artwork.URL)
+					if err != nil {
+						fmt.Println("Failed to write cover.")
+					}
+
+					album.Tracks[i].CoverPath = covPath
+					album.Tracks[i].SaveDir = albumFolderPath
+					album.Tracks[i].Codec = Codec
+
+					ripTrack(&album.Tracks[i], token, mediaUserToken)
+					return nil
+				}
+			}
+		}
+		return nil
+	}
+
+	// Determine which tracks to download
+	var selected []int
+	if !dl_select {
+		selected = arr
+	} else {
+		selected = album.ShowSelect()
+	}
+
+	if len(selected) == 0 {
+		return nil
+	}
+	// Create folder (after selecting a track)
+	os.MkdirAll(singerFolder, os.ModePerm)
+	os.MkdirAll(albumFolderPath, os.ModePerm)
+
+	// Save artist cover if configured
 	if Config.SaveArtistCover {
 		if len(meta.Data[0].Relationships.Artists.Data) > 0 {
 			_, err = writeCover(singerFolder, "folder", meta.Data[0].Relationships.Artists.Data[0].Attributes.Artwork.Url)
@@ -1295,13 +1362,13 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 		}
 	}
 
-	// Download and save album cover art
+	// Download album cover art
 	covPath, err := writeCover(albumFolderPath, "cover", meta.Data[0].Attributes.Artwork.URL)
 	if err != nil {
 		fmt.Println("Failed to write cover.")
 	}
 
-	// Handle animated artwork if available and configured
+	// Download animated artwork if available
 	if Config.SaveAnimatedArtwork && meta.Data[0].Attributes.EditorialVideo.MotionDetailSquare.Video != "" {
 		fmt.Println("Found Animation Artwork.")
 
@@ -1327,7 +1394,6 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 			}
 		}
 
-		// Convert to GIF for Emby compatibility
 		if Config.EmbyAnimatedArtwork {
 			cmd3 := exec.Command("ffmpeg", "-i", filepath.Join(albumFolderPath, "square_animated_artwork.mp4"), "-vf", "scale=440:-1", "-r", "24", "-f", "gif", filepath.Join(albumFolderPath, "folder.jpg"))
 			if err := cmd3.Run(); err != nil {
@@ -1358,56 +1424,21 @@ func ripAlbum(albumId string, token string, storefront string, mediaUserToken st
 		}
 	}
 
-	// Set common track properties for all tracks in the album
+	// Set track properties (setelah folder dan cover sudah siap)
 	for i := range album.Tracks {
 		album.Tracks[i].CoverPath = covPath
 		album.Tracks[i].SaveDir = albumFolderPath
 		album.Tracks[i].Codec = Codec
 	}
 
-	// Create track selection array
-	trackTotal := len(meta.Data[0].Relationships.Tracks.Data)
-	arr := make([]int, trackTotal)
-	for i := range trackTotal {
-		arr[i] = i + 1
-	}
-
-	// Handle single song download mode
-	if dl_song {
-		if urlArg_i == "" {
-			// No specific track ID provided in URL
-		} else {
-			// Find and download the specific track
-			for i := range album.Tracks {
-				if urlArg_i == album.Tracks[i].ID {
-					ripTrack(&album.Tracks[i], token, mediaUserToken)
-					return nil
-				}
-			}
-		}
-		return nil
-	}
-
-	// Determine which tracks to download
-	var selected []int
-	if !dl_select {
-		// Download all tracks if selective mode is not enabled
-		selected = arr
-	} else {
-		// Show interactive track selection
-		selected = album.ShowSelect()
-	}
-
 	// Download selected tracks
 	for i := range album.Tracks {
 		i++
-		// Skip already downloaded tracks
 		if isInArray(okDict[albumId], i) {
 			counter.Total++
 			counter.Success++
 			continue
 		}
-		// Download selected tracks
 		if isInArray(selected, i) {
 			ripTrack(&album.Tracks[i-1], token, mediaUserToken)
 		}

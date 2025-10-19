@@ -6,7 +6,7 @@ type TrackResp struct {
 	Data []TrackRespData `json:"data"`
 }
 
-// 类型为song 或者 music-video
+// Type is song or music video
 type TrackRespData struct {
 	ID         string `json:"id"`
 	Type       string `json:"type"`

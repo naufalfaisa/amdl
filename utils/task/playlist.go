@@ -8,10 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fatih/color"
-	"github.com/olekukonko/tablewriter"
-
 	"main/utils/ampapi"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 type Playlist struct {
@@ -33,10 +32,7 @@ func NewPlaylist(st string, id string) *Playlist {
 	a := new(Playlist)
 	a.Storefront = st
 	a.ID = id
-
-	//fmt.Println("Album created")
 	return a
-
 }
 
 func (a *Playlist) GetResp(token, l string) error {
@@ -44,15 +40,14 @@ func (a *Playlist) GetResp(token, l string) error {
 	a.Language = l
 	resp, err := ampapi.GetPlaylistResp(a.Storefront, a.ID, a.Language, token)
 	if err != nil {
-		return errors.New("error getting album response")
+		return errors.New("error getting playlist response")
 	}
 	a.Resp = *resp
 
 	a.Resp.Data[0].Attributes.ArtistName = "Apple Music"
-	//简化高频调用名称
 	a.Name = a.Resp.Data[0].Attributes.Name
-	//fmt.Println("Getting album response")
-	//从resp中的Tracks数据中提取trackData信息到新的Track结构体中
+
+	// Extract track data from response
 	for i, trackData := range a.Resp.Data[0].Relationships.Tracks.Data {
 		len := len(a.Resp.Data[0].Relationships.Tracks.Data)
 		a.Tracks = append(a.Tracks, Track{
@@ -62,26 +57,18 @@ func (a *Playlist) GetResp(token, l string) error {
 			Language:   a.Language,
 			Storefront: a.Storefront,
 
-			//SaveDir:   filepath.Join(a.SaveDir, a.SaveName),
-			//Codec:     a.Codec,
 			TaskNum:   i + 1,
 			TaskTotal: len,
 			M3u8:      trackData.Attributes.ExtendedAssetUrls.EnhancedHls,
 			WebM3u8:   trackData.Attributes.ExtendedAssetUrls.EnhancedHls,
-			//CoverPath: a.CoverPath,
 
-			Resp:    trackData,
-			PreType: "playlists",
-			//DiscTotal: a.Resp.Data[0].Relationships.Tracks.Data[len-1].Attributes.DiscNumber, 在它处获取
+			Resp:         trackData,
+			PreType:      "playlists",
 			PreID:        a.ID,
 			PlaylistData: a.Resp.Data[0],
 		})
 	}
 	return nil
-}
-
-func (a *Playlist) GetArtwork() string {
-	return a.Resp.Data[0].Attributes.Artwork.URL
 }
 
 func (a *Playlist) ShowSelect() []int {
@@ -91,107 +78,129 @@ func (a *Playlist) ShowSelect() []int {
 	for i := 0; i < trackTotal; i++ {
 		arr[i] = i + 1
 	}
-	selected := []int{}
-	var data [][]string
+
+	// Display all available tracks
+	fmt.Println("\nAvailable Tracks:")
+
+	// Create table with same styling as relationships table
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"NO.", "TRACK NAME", "RATING", "TYPE"})
+	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetColWidth(50)
+	table.SetNoWhiteSpace(true)
+	table.SetBorder(false)
+	table.SetHeaderLine(false)
+	table.SetColumnSeparator("  ")
+	table.SetCenterSeparator("")
+	table.SetTablePadding("\t")
+
 	for trackNum, track := range meta.Data[0].Relationships.Tracks.Data {
 		trackNum++
-		trackName := fmt.Sprintf("%s - %s", track.Attributes.Name, track.Attributes.ArtistName)
-		data = append(data, []string{fmt.Sprint(trackNum),
-			trackName,
-			track.Attributes.ContentRating,
-			track.Type})
 
-	}
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"", "Track Name", "Rating", "Type"})
-	//table.SetFooter([]string{"", "", "Footer", "Footer4"})
-	table.SetRowLine(false)
-	//table.SetAutoMergeCells(true)
-	table.SetCaption(true, fmt.Sprintf("Playlists: %d tracks", trackTotal))
-	table.SetHeaderColor(tablewriter.Colors{},
-		tablewriter.Colors{tablewriter.FgRedColor, tablewriter.Bold},
-		tablewriter.Colors{tablewriter.FgBlackColor, tablewriter.Bold},
-		tablewriter.Colors{tablewriter.FgBlackColor, tablewriter.Bold})
+		// Format track name with truncation
+		trackName := track.Attributes.Name
+		if len(trackName) > 60 {
+			trackName = trackName[:57] + "..."
+		}
 
-	table.SetColumnColor(tablewriter.Colors{tablewriter.FgCyanColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgRedColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
-	for _, row := range data {
-		switch row[2] {
+		// Format rating
+		rating := "None"
+		switch track.Attributes.ContentRating {
 		case "explicit":
-			row[2] = "E"
+			rating = "E"
 		case "clean":
-			row[2] = "C"
-		default:
-			row[2] = "None"
+			rating = "C"
 		}
-		switch row[3] {
-		case "music-videos":
-			row[3] = "MV"
-		case "songs":
-			row[3] = "SONG"
+
+		// Format type
+		trackType := "SONG"
+		if track.Type == "music-videos" {
+			trackType = "MV"
 		}
-		table.Append(row)
+
+		table.Append([]string{
+			fmt.Sprintf("%d", trackNum),
+			trackName,
+			rating,
+			trackType,
+		})
 	}
-	//table.AppendBulk(data)
+
 	table.Render()
-	fmt.Println("Please select from the track options above (multiple options separated by commas, ranges supported, or type 'all' to select all)")
-	cyanColor := color.New(color.FgCyan)
-	cyanColor.Print("select: ")
+	fmt.Printf("\nPlaylist: %d tracks\n", trackTotal)
+
+	// Ask user input for selection (same style as main.go)
 	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println(err)
-	}
+	fmt.Println("\nSelect from the track options above (multiple options separated by commas, ranges supported, or type 'all' to select all)")
+	fmt.Print("Enter your choice: ")
+	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
+
+	if input == "" {
+		fmt.Println("No option selected, skipping...")
+		return []int{}
+	}
+
 	if input == "all" {
 		fmt.Println("You have selected all options:")
-		selected = arr
-	} else {
-		selectedOptions := [][]string{}
-		parts := strings.Split(input, ",")
-		for _, part := range parts {
-			if strings.Contains(part, "-") { // Range setting
-				rangeParts := strings.Split(part, "-")
-				selectedOptions = append(selectedOptions, rangeParts)
-			} else { // Single option
-				selectedOptions = append(selectedOptions, []string{part})
-			}
-		}
-		//
-		for _, opt := range selectedOptions {
-			if len(opt) == 1 { // Single option
-				num, err := strconv.Atoi(opt[0])
-				if err != nil {
-					fmt.Println("Invalid option:", opt[0])
-					continue
-				}
-				if num > 0 && num <= len(arr) {
-					selected = append(selected, num)
-					//args = append(args, urls[num-1])
-				} else {
-					fmt.Println("Option out of range:", opt[0])
-				}
-			} else if len(opt) == 2 { // Range
-				start, err1 := strconv.Atoi(opt[0])
-				end, err2 := strconv.Atoi(opt[1])
-				if err1 != nil || err2 != nil {
-					fmt.Println("Invalid range:", opt)
-					continue
-				}
-				if start < 1 || end > len(arr) || start > end {
-					fmt.Println("Range out of range:", opt)
-					continue
-				}
-				for i := start; i <= end; i++ {
-					//fmt.Println(options[i-1])
-					selected = append(selected, i)
-				}
-			} else {
-				fmt.Println("Invalid option:", opt)
-			}
+		return arr
+	}
+
+	// Parse numeric or range input (same logic as main.go)
+	selected := []int{}
+	parts := strings.Split(input, ",")
+	selectedOptions := [][]string{}
+
+	for _, part := range parts {
+		if strings.Contains(part, "-") {
+			rangeParts := strings.Split(part, "-")
+			selectedOptions = append(selectedOptions, rangeParts)
+		} else {
+			selectedOptions = append(selectedOptions, []string{part})
 		}
 	}
+
+	// Process user-selected indices
+	fmt.Println("You have selected the following options:")
+	for _, opt := range selectedOptions {
+		if len(opt) == 1 {
+			num, err := strconv.Atoi(opt[0])
+			if err != nil {
+				fmt.Println("Invalid option:", opt[0])
+				continue
+			}
+			if num > 0 && num <= trackTotal {
+				trackData := meta.Data[0].Relationships.Tracks.Data[num-1]
+				trackName := fmt.Sprintf("%s - %s", trackData.Attributes.Name, trackData.Attributes.ArtistName)
+				fmt.Printf("  %d. %s\n", num, trackName)
+				selected = append(selected, num)
+			} else {
+				fmt.Println("Option out of range:", opt[0])
+			}
+		} else if len(opt) == 2 {
+			start, err1 := strconv.Atoi(opt[0])
+			end, err2 := strconv.Atoi(opt[1])
+			if err1 != nil || err2 != nil {
+				fmt.Println("Invalid range:", opt)
+				continue
+			}
+			if start < 1 || end > trackTotal || start > end {
+				fmt.Println("Range out of range:", opt)
+				continue
+			}
+			for i := start; i <= end; i++ {
+				trackData := meta.Data[0].Relationships.Tracks.Data[i-1]
+				trackName := fmt.Sprintf("%s - %s", trackData.Attributes.Name, trackData.Attributes.ArtistName)
+				fmt.Printf("  %d. %s\n", i, trackName)
+				selected = append(selected, i)
+			}
+		} else {
+			fmt.Println("Invalid option:", opt)
+		}
+	}
+
 	return selected
 }

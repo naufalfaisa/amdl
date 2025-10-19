@@ -24,8 +24,8 @@ type Track struct {
 	CoverPath  string
 
 	Resp         ampapi.TrackRespData
-	PreType      string // 上级类型 专辑或者歌单
-	PreID        string // 上级ID
+	PreType      string // Parent type: album or playlist
+	PreID        string // Parent ID
 	DiscTotal    int
 	AlbumData    ampapi.AlbumRespData
 	PlaylistData ampapi.PlaylistRespData
@@ -38,7 +38,7 @@ func (t *Track) GetAlbumData(token string) error {
 		return err
 	}
 	t.AlbumData = resp.Data[0]
-	//尝试获取该track所在album的disk总数
+	// Try to get the total number of disks in the album where the track is located
 	if len(resp.Data) > 0 {
 		len := len(resp.Data[0].Relationships.Tracks.Data)
 		if len > 0 {

@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+
 	//"time"
 
 	"github.com/grafov/m3u8"
@@ -75,7 +76,7 @@ func getPSSH(contentId string, kidBase64 string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal WidevineCencHeader: %v", err)
 	}
-	//最前面添加32字节
+	//add 32 bytes at the beginning
 	widevineCenc = append([]byte("0123456789abcdef0123456789abcdef"), widevineCenc...)
 	pssh := base64.StdEncoding.EncodeToString(widevineCenc)
 	return pssh, nil
@@ -135,10 +136,10 @@ func GetWebplayback(adamId string, authtoken string, mutoken string, mvmode bool
 	req.Header.Set("Referer", "https://music.apple.com/")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authtoken))
 	req.Header.Set("x-apple-music-user-token", mutoken)
-	// 创建 HTTP 客户端
+	// create HTTP client
 	//client := &http.Client{}
 	resp, err := http.DefaultClient.Do(req)
-	// 发送请求
+	// send request
 	//resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error sending request:", err)
@@ -156,7 +157,7 @@ func GetWebplayback(adamId string, authtoken string, mutoken string, mvmode bool
 		if mvmode {
 			return obj.List[0].HlsPlaylistUrl, "", nil
 		}
-		// 遍历 Assets
+		// traverse Assets
 		for i := range obj.List[0].Assets {
 			if obj.List[0].Assets[i].Flavor == "28:ctrp256" {
 				kidBase64, fileurl, err := extractKidBase64(obj.List[0].Assets[i].URL, false)
@@ -209,7 +210,7 @@ func extractKidBase64(b string, mvmode bool) (string, string, error) {
 			split := strings.Split(mediaPlaylist.Key.URI, ",")
 			kidbase64 = split[1]
 			lastSlashIndex := strings.LastIndex(b, "/")
-			// 截取最后一个斜杠之前的部分
+			// intercept the part before the last slash
 			urlBuilder.WriteString(b[:lastSlashIndex])
 			urlBuilder.WriteString("/")
 			urlBuilder.WriteString(mediaPlaylist.Map.URI)
@@ -238,7 +239,7 @@ func extractKidBase64(b string, mvmode bool) (string, string, error) {
 func extsong(b string) bytes.Buffer {
 	resp, err := http.Get(b)
 	if err != nil {
-		fmt.Printf("下载文件失败: %v\n", err)
+		fmt.Printf("Download file failed: %v\n", err)
 	}
 	defer resp.Body.Close()
 	var buffer bytes.Buffer
@@ -292,7 +293,7 @@ func Run(adamId string, trackpath string, authtoken string, mutoken string, mvmo
 		"authorization":            "Bearer " + authtoken,
 		"x-apple-music-user-token": mutoken,
 	}
-	client, _ := requests.NewClient(nil, requests.ClientOption{
+	client, _ := requests.NewClient(context.TODO(), requests.ClientOption{
 		Headers: headers,
 	})
 	key := key.Key{
@@ -334,27 +335,27 @@ func Run(adamId string, trackpath string, authtoken string, mutoken string, mvmo
 	// create output file
 	ofh, err := os.Create(trackpath)
 	if err != nil {
-		fmt.Printf("创建文件失败: %v\n", err)
+		fmt.Printf("Create file Failed: %v\n", err)
 		return "", err
 	}
 	defer ofh.Close()
 
 	_, err = ofh.Write(buffer.Bytes())
 	if err != nil {
-		fmt.Printf("写入文件失败: %v\n", err)
+		fmt.Printf("Write file Failed: %v\n", err)
 		return "", err
 	}
 	return "", nil
 }
 
-// Segment 结构体用于在 Channel 中传递分段数据
+// Segment struct is used to pass segment data in Channel
 type Segment struct {
 	Index int
 	Data  []byte
 }
 
 func downloadSegment(url string, index int, wg *sync.WaitGroup, segmentsChan chan<- Segment, client *http.Client, limiter chan struct{}) {
-	// 函数退出时，从 limiter 中接收一个值，释放一个并发槽位
+	// When the function exits, receive a value from limiter to release a concurrency slot
 	defer func() {
 		<-limiter
 		wg.Done()
@@ -362,88 +363,88 @@ func downloadSegment(url string, index int, wg *sync.WaitGroup, segmentsChan cha
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Printf("错误(分段 %d): 创建请求失败: %v\n", index, err)
+		fmt.Printf("error (segment %d): failed to create request: %v\n", index, err)
 		return
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("错误(分段 %d): 下载失败: %v\n", index, err)
+		fmt.Printf("error (segment %d): download failed: %v\n", index, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("错误(分段 %d): 服务器返回状态码 %d\n", index, resp.StatusCode)
+		fmt.Printf("error (segment %d): server returned status code %d\n", index, resp.StatusCode)
 		return
 	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("错误(分段 %d): 读取数据失败: %v\n", index, err)
+		fmt.Printf("error (segment %d): failed to read data: %v\n", index, err)
 		return
 	}
 
-	// 将下载好的分段（包含序号和数据）发送到 Channel
+	// send the downloaded segment (including index and data) to Channel
 	segmentsChan <- Segment{Index: index, Data: data}
 }
 
-// fileWriter 从 Channel 接收分段并按顺序写入文件
+// fileWriter receives segments from Channel and writes them sequentially to the file
 func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.Writer, totalSegments int) {
 	defer wg.Done()
 
-	// 缓冲区，用于存放乱序到达的分段
-	// key 是分段序号，value 是分段数据
+	// Buffer to store out-of-order segments
+	// key is segment index, value is segment data
 	segmentBuffer := make(map[int][]byte)
-	nextIndex := 0 // 期望写入的下一个分段的序号
+	nextIndex := 0 // The sequence number of the next segment expected to be written
 
 	for segment := range segmentsChan {
-		// 检查收到的分段是否是当前期望的
+		// Check if the received segment is the expected one
 		if segment.Index == nextIndex {
-			//fmt.Printf("写入分段 %d\n", segment.Index)
+			//fmt.Printf("write segment %d\n", segment.Index)
 			_, err := outputFile.Write(segment.Data)
 			if err != nil {
-				fmt.Printf("错误(分段 %d): 写入文件失败: %v\n", segment.Index, err)
+				fmt.Printf("error (segment %d): failed to write to file: %v\n", segment.Index, err)
 			}
 			nextIndex++
 
-			// 检查缓冲区中是否有下一个连续的分段
+			// Check if there is the next consecutive segment in the buffer
 			for {
 				data, ok := segmentBuffer[nextIndex]
 				if !ok {
-					break // 缓冲区里没有下一个，跳出循环，等待下一个分段到达
+					break // No next segment in buffer, wait for the next incoming one
 				}
 
-				//fmt.Printf("从缓冲区写入分段 %d\n", nextIndex)
+				//fmt.Printf("write segment %d from buffer\n", nextIndex)
 				_, err := outputFile.Write(data)
 				if err != nil {
-					fmt.Printf("错误(分段 %d): 从缓冲区写入文件失败: %v\n", nextIndex, err)
+					fmt.Printf("error (segment %d): failed to write from buffer: %v\n", nextIndex, err)
 				}
-				// 从缓冲区删除已写入的分段，释放内存
+				// Delete the written segment from the buffer and release memory
 				delete(segmentBuffer, nextIndex)
 				nextIndex++
 			}
 		} else {
-			// 如果不是期望的分段，先存入缓冲区
-			//fmt.Printf("缓冲分段 %d (等待 %d)\n", segment.Index, nextIndex)
+			// If it's not the expected segment, store it in the buffer
+			//fmt.Printf("buffered segment %d (waiting for %d)\n", segment.Index, nextIndex)
 			segmentBuffer[segment.Index] = segment.Data
 		}
 	}
 
-	// 确保所有分段都已写入
+	// Ensure all segments are written
 	if nextIndex != totalSegments {
-		fmt.Printf("警告: 写入完成，但似乎有分段丢失。期望 %d 个, 实际写入 %d 个。\n", totalSegments, nextIndex)
+		fmt.Printf("warning: writing complete, but some segments seem missing. Expected %d, wrote %d.\n", totalSegments, nextIndex)
 	}
 }
 
 func ExtMvData(keyAndUrls string, savePath string) error {
 	segments := strings.Split(keyAndUrls, ";")
 	key := segments[0]
-	//fmt.Println(key)
 	urls := segments[1:]
+
 	tempFile, err := os.CreateTemp("", "enc_mv_data-*.mp4")
 	if err != nil {
-		fmt.Printf("创建文件失败：%v\n", err)
+		fmt.Printf("Failed to create temporary file: %v\n", err)
 		return err
 	}
 	defer os.Remove(tempFile.Name())
@@ -451,64 +452,63 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 
 	var downloadWg, writerWg sync.WaitGroup
 	segmentsChan := make(chan Segment, len(urls))
-	// --- 新增代码: 定义最大并发数 ---
+
+	// Define maximum concurrency
 	const maxConcurrency = 10
-	// --- 新增代码: 创建带缓冲的 Channel 作为信号量 ---
+	// Create buffered channel as a semaphore
 	limiter := make(chan struct{}, maxConcurrency)
 	client := &http.Client{}
 
-	// 初始化进度条
+	// Initialize progress bar
 	bar := progressbar.DefaultBytes(-1, "Downloading...")
 	barWriter := io.MultiWriter(tempFile, bar)
 
-	// 启动写入 Goroutine
+	// Start writer goroutine
 	writerWg.Add(1)
 	go fileWriter(&writerWg, segmentsChan, barWriter, len(urls))
 
-	// 启动下载 Goroutines
+	// Start download goroutines
 	for i, url := range urls {
-		// 在启动 Goroutine 前，向 limiter 发送一个值来“获取”一个槽位
-		// 如果 limiter 已满 (达到10个)，这里会阻塞，直到有其他任务完成并释放槽位
-		//fmt.Printf("请求启动任务 %d...\n", i)
+		// Acquire a slot from limiter before starting a goroutine
+		// If limiter is full (10 running), this blocks until another finishes
 		limiter <- struct{}{}
-		//fmt.Printf("...任务 %d 已启动\n", i)
-
 		downloadWg.Add(1)
-		// 将 limiter 传递给下载函数
 		go downloadSegment(url, i, &downloadWg, segmentsChan, client, limiter)
 	}
 
-	// 等待所有下载任务完成
+	// Wait for all download tasks to finish
 	downloadWg.Wait()
-	// 下载完成后，关闭 Channel。写入 Goroutine 会在处理完 Channel 中所有数据后退出。
+
+	// Close channel after all downloads; writer will exit after processing all segments
 	close(segmentsChan)
 
-	// 等待写入 Goroutine 完成所有写入和缓冲处理
+	// Wait for writer to complete all writing and buffer handling
 	writerWg.Wait()
 
-	// 显式关闭文件（defer会再次调用，但重复关闭是安全的）
+	// Explicitly close the temp file (safe even if defer closes again)
 	if err := tempFile.Close(); err != nil {
-		fmt.Printf("关闭临时文件失败: %v\n", err)
+		fmt.Printf("Failed to close temporary file: %v\n", err)
 		return err
 	}
+
 	fmt.Println("\nDownloaded.")
 
 	cmd1 := exec.Command("mp4decrypt", "--key", key, tempFile.Name(), filepath.Base(savePath))
-	cmd1.Dir = filepath.Dir(savePath) //设置mp4decrypt的工作目录以解决中文路径错误
+	cmd1.Dir = filepath.Dir(savePath) // Set working directory to avoid path issues with non-ASCII characters
 	outlog, err := cmd1.CombinedOutput()
 	if err != nil {
 		fmt.Printf("Decrypt failed: %v\n", err)
 		fmt.Printf("Output:\n%s\n", outlog)
 		return err
-	} else {
-		fmt.Println("Decrypted.")
 	}
+
+	fmt.Println("Decrypted.")
 	return nil
 }
 
-// DecryptMP4 decrypts a fragmented MP4 file with keys from widevice license. Supports CENC and CBCS schemes.
+// DecryptMP4 decrypts a fragmented MP4 file using keys from a Widevine license.
+// Supports both CENC and CBCS encryption schemes.
 func DecryptMP4(r io.Reader, key []byte, w io.Writer) error {
-	// Initialization
 	inMp4, err := mp4.DecodeFile(r)
 	if err != nil {
 		return fmt.Errorf("failed to decode file: %w", err)
@@ -516,10 +516,10 @@ func DecryptMP4(r io.Reader, key []byte, w io.Writer) error {
 	if !inMp4.IsFragmented() {
 		return errors.New("file is not fragmented")
 	}
-	// Handle init segment
 	if inMp4.Init == nil {
 		return errors.New("no init part of file")
 	}
+
 	decryptInfo, err := mp4.DecryptInit(inMp4.Init)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt init: %w", err)
@@ -527,13 +527,11 @@ func DecryptMP4(r io.Reader, key []byte, w io.Writer) error {
 	if err = inMp4.Init.Encode(w); err != nil {
 		return fmt.Errorf("failed to write init: %w", err)
 	}
-	// Decode segments
+
 	for _, seg := range inMp4.Segments {
 		if err = mp4.DecryptSegment(seg, decryptInfo, key); err != nil {
 			if err.Error() == "no senc box in traf" {
-				// No SENC box, skip decryption for this segment as samples can have
-				// unencrypted segments followed by encrypted segments. See:
-				// https://github.com/iyear/gowidevine/pull/26#issuecomment-2385960551
+				// No SENC box; skip decryption for this segment
 				err = nil
 			} else {
 				return fmt.Errorf("failed to decrypt segment: %w", err)
