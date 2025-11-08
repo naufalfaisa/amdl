@@ -1,0 +1,20 @@
+# Ignore everything by default
+*
+
+# Except the following files
+!.gitignore
+!agent.js
+!agent-arm64.js
+!go.mod
+!go.sum
+!main.go
+!README.md
+
+# Keep all files inside these directories
+!internal/
+!internal/**
+!utils/
+!utils/**
+
+# Include config example
+!example.config.yaml
