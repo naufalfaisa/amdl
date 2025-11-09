@@ -1,5 +1,5 @@
-# Apple Music ALAC / Dolby Atmos Downloader
-Modified from [https://github.com/zhaarey/apple-music-downloader](https://github.com/zhaarey/apple-music-downloader)
+# Apple Music Downloader
+Modified from [zhaarey](https://github.com/zhaarey/apple-music-downloader)
 
 ## Prerequisites
 - Install [(MP4Box)](https://gpac.io/downloads/gpac-nightly-builds/) and ensure it is added to your environment variables.
@@ -31,7 +31,7 @@ go run main.go --search [song/album/artist] "search_term"
 
 ## Usage
 ### General Steps
-1. Ensure the decryption wrapper is running: [wrapper](https://github.com/naufalfaisa/wrapper)
+1. Ensure the decryption wrapper is running: [wrapper](https://github.com/zhaarey/wrapper)
 2. Download an album: 
 ```bash
 go run main.go <album_url>
@@ -78,3 +78,53 @@ go run main.go --debug <album_url>
 6. Remove pronunciation if not needed.
 7. Start the script as usual.
 **Note:** These features are currently in beta.
+
+## Configurable Options via `config.yaml`
+
+### Authentication
+- `media-user-token` – Needed for lyrics or AAC-LC downloads.
+- `authorization-token` – Usually no change needed; automatically retrieves token.
+
+### Language & Lyrics
+- `language` – Supported language per storefront.
+- `lrc-type` – Choose between `lyrics` or `syllable-lyrics`.
+- `lrc-format` – Options: `lrc`, `ttml`.
+- `embed-lrc` – Embed lyrics in audio file.
+- `save-lrc-file` – Save lyrics as separate file.
+
+### Cover & Artwork
+- `save-artist-cover` – Save artist cover images.
+- `save-animated-artwork` / `emby-animated-artwork` – Requires ffmpeg.
+- `embed-cover` – Embed album cover in audio file.
+- `cover-size` / `cover-format` – Control size and format.
+
+### Download Folders
+- `alac-save-folder`, `atmos-save-folder`, `aac-save-folder` – Output folders for each format.
+
+### Memory & Port
+- `max-memory-limit` – Maximum memory usage in MB.
+- `decrypt-m3u8-port`, `get-m3u8-port` – Local ports for streaming/decryption.
+- `get-m3u8-from-device`, `get-m3u8-mode` – Device mode and quality.
+
+### Audio Settings
+- `aac-type` – Choose AAC format.
+- `alac-max` – Max sample rate.
+- `atmos-max` – Max bitrate.
+- `limit-max` – Maximum number of tracks to download.
+
+### File & Folder Naming
+- `album-folder-format`, `playlist-folder-format`, `song-file-format`, `artist-folder-format`.
+
+### Explicit / Clean / Master Tags
+- `explicit-choice`, `clean-choice`, `apple-master-choice`.
+
+### Playlist Options
+- `use-songinfo-for-playlist`, `dl-albumcover-for-playlist`.
+
+### Music Video
+- `mv-audio-type`, `mv-max` – Audio type and max resolution for MV download.
+
+### Post-download Conversion
+- `convert-after-download`, `convert-format`, `convert-keep-original`.
+- `convert-skip-if-source-matches`, `ffmpeg-path`, `convert-extra-args`.
+- `convert-warn-lossy-to-lossless`, `convert-skip-lossy-to-lossless`.
