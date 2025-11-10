@@ -19,6 +19,10 @@ jobs:
     - name: Build
       run: |
         go build -o main.exe -v ./main.go
+    - name: Copy example config to actual config
+      run: |
+        copy example.config.yaml config.yaml
+      shell: cmd
     - name: Create a new directory and copy files
       run: |
         mkdir -p alac
@@ -44,6 +48,9 @@ jobs:
     - name: Build
       run: |
         go build -o main -v ./main.go
+    - name: Copy example config to actual config
+      run: | 
+        cp example.config.yaml config.yaml
     - name: Create a new directory and copy files
       run: |
         mkdir -p alac
@@ -69,6 +76,9 @@ jobs:
     - name: Build
       run: |
         go build -o main -v ./main.go
+    - name: Copy example config to actual config
+      run: | 
+        cp example.config.yaml config.yaml
     - name: Create a new directory and copy files
       run: |
         mkdir -p alac
