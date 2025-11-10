@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"main/internal/config"
@@ -141,15 +143,55 @@ func main() {
 			var storefront, albumId string
 
 			// Handle different URL types...
-			// (bagian processing URLs tetap sama, hanya panggil downloader.*)
-
 			if strings.Contains(urlRaw, "/music-video/") {
-				// ... MV handling
+				fmt.Println("Music Video")
+				if debug_mode {
+					continue
+				}
+				counter.Total++
+				if len(Config.MediaUserToken) <= 50 {
+					fmt.Println(": meida-user-token is not set, skip MV dl")
+					counter.Success++
+					continue
+				}
+				if _, err := exec.LookPath("mp4decrypt"); err != nil {
+					fmt.Println(": mp4decrypt is not found, skip MV dl")
+					counter.Success++
+					continue
+				}
+				mvSaveDir := strings.NewReplacer(
+					"{ArtistName}", "",
+					"{UrlArtistName}", "",
+					"{ArtistId}", "",
+				).Replace(Config.ArtistFolderFormat)
+				if mvSaveDir != "" {
+					mvSaveDir = filepath.Join(Config.AlacSaveFolder, helpers.SanitizeFilename(mvSaveDir))
+				} else {
+					mvSaveDir = Config.AlacSaveFolder
+				}
+				storefront, albumId = helpers.CheckURLMv(urlRaw)
+				err := downloader.DownloadMusicVideo(albumId, mvSaveDir, token, storefront, Config.MediaUserToken, nil, Config)
+				if err != nil {
+					fmt.Println("\u26A0 Failed to dl MV:", err)
+					counter.Error++
+					continue
+				}
+				counter.Success++
+				continue
 			}
 			if strings.Contains(urlRaw, "/song/") {
-				// ... Song handling
+				fmt.Printf("Song->")
+				storefront, songId := helpers.CheckURLSong(urlRaw)
+				if storefront == "" || songId == "" {
+					fmt.Println("Invalid song URL format.")
+					continue
+				}
+				err := downloader.RipSong(songId, token, storefront, Config.MediaUserToken, Config, &counter, okDict, dl_atmos, dl_aac, dl_select)
+				if err != nil {
+					fmt.Println("Failed to rip song:", err)
+				}
+				continue
 			}
-
 			parse, err := url.Parse(urlRaw)
 			if err != nil {
 				fmt.Printf("Invalid URL: %v", err)
