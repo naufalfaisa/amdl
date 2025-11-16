@@ -20,6 +20,7 @@ cover-format: "jpg"               # Options: jpg, png, original
 alac-save-folder: "ALAC downloads"
 atmos-save-folder: "Atmos downloads"
 aac-save-folder: "AAC downloads"
+mv-save-folder: "MV downloads"
 
 # Memory & port settings
 max-memory-limit: 256              # MB

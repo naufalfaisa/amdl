@@ -26,7 +26,7 @@ func GetUrlSong(songUrl string, token string, cfg *config.Config) (string, error
 
 // RipSong downloads a single song (converts to album approach)
 func RipSong(songId string, token string, storefront string, mediaUserToken string, cfg *config.Config,
-	counter *structs.Counter, okDict map[string][]int, dlAtmos bool, dlAAC bool, dlSelect bool) error {
+	counter *structs.Counter, okDict map[string][]int, dlAtmos bool, dlAAC bool, dlSelect bool, debugMode bool) error {
 	// Get song info to find album ID
 	manifest, err := ampapi.GetSongResp(storefront, songId, cfg.Language, token)
 	if err != nil {
@@ -38,7 +38,7 @@ func RipSong(songId string, token string, storefront string, mediaUserToken stri
 	albumId := songData.Relationships.Albums.Data[0].ID
 
 	// Use album approach but only download the specific song
-	err = RipAlbum(albumId, token, storefront, mediaUserToken, songId, cfg, counter, okDict, dlAtmos, dlAAC, dlSelect, true)
+	err = RipAlbum(albumId, token, storefront, mediaUserToken, songId, cfg, counter, okDict, dlAtmos, dlAAC, dlSelect, true, debugMode)
 	if err != nil {
 		fmt.Println("Failed to rip song:", err)
 		return err

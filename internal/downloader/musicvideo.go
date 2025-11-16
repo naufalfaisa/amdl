@@ -29,19 +29,62 @@ func DownloadMusicVideo(adamID string, saveDir string, token string, storefront 
 		return nil
 	}
 
+	if track == nil && cfg.MVSaveFolder != "" {
+		artistName := helpers.SanitizeFilename(MVInfo.Data[0].Attributes.ArtistName)
+		saveDir = filepath.Join(cfg.MVSaveFolder, artistName)
+	}
+
 	if strings.HasSuffix(saveDir, ".") {
 		saveDir = strings.ReplaceAll(saveDir, ".", "")
 	}
 	saveDir = strings.TrimSpace(saveDir)
 
-	vidPath := filepath.Join(saveDir, fmt.Sprintf("%s_vid.mp4", adamID))
-	audPath := filepath.Join(saveDir, fmt.Sprintf("%s_aud.mp4", adamID))
-	mvSaveName := fmt.Sprintf("%s (%s)", MVInfo.Data[0].Attributes.Name, adamID)
-	if track != nil {
-		mvSaveName = fmt.Sprintf("%02d. %s", track.TaskNum, MVInfo.Data[0].Attributes.Name)
+	var mvSaveName string
+
+	if cfg.MVFolderFormat != "" {
+		// Extract info for placeholders
+		releaseYear := ""
+		if len(MVInfo.Data[0].Attributes.ReleaseDate) >= 4 {
+			releaseYear = MVInfo.Data[0].Attributes.ReleaseDate[:4]
+		}
+
+		quality := fmt.Sprintf("%dp", cfg.MVMax)
+
+		// Build filename from template
+		mvSaveName = strings.NewReplacer(
+			"{ArtistName}", config.LimitString(MVInfo.Data[0].Attributes.ArtistName, cfg.LimitMax),
+			"{MVName}", config.LimitString(MVInfo.Data[0].Attributes.Name, cfg.LimitMax),
+			"{ReleaseYear}", releaseYear,
+			"{ReleaseDate}", MVInfo.Data[0].Attributes.ReleaseDate,
+			"{MVId}", adamID,
+			"{Quality}", quality,
+		).Replace(cfg.MVFolderFormat)
+
+		// Add track-specific placeholders if MV is from album/playlist
+		if track != nil {
+			mvSaveName = strings.NewReplacer(
+				"{TrackNumber}", fmt.Sprintf("%02d", track.TaskNum),
+				"{AlbumName}", config.LimitString(track.AlbumData.Attributes.Name, cfg.LimitMax),
+			).Replace(mvSaveName)
+		}
+	} else {
+		// Fallback to default format
+		if track != nil {
+			mvSaveName = fmt.Sprintf("%02d. %s", track.TaskNum, MVInfo.Data[0].Attributes.Name)
+		} else {
+			mvSaveName = fmt.Sprintf("%s (%s)", MVInfo.Data[0].Attributes.Name, adamID)
+		}
 	}
 
-	mvOutPath := filepath.Join(saveDir, fmt.Sprintf("%s.mp4", helpers.SanitizeFilename(mvSaveName)))
+	mvSaveName = helpers.SanitizeFilename(mvSaveName)
+
+	vidPath := filepath.Join(saveDir, fmt.Sprintf("%s_vid.mp4", adamID))
+	audPath := filepath.Join(saveDir, fmt.Sprintf("%s_aud.mp4", adamID))
+	// mvSaveName := fmt.Sprintf("%s (%s)", MVInfo.Data[0].Attributes.Name, adamID)
+	// if track != nil {
+	// 	mvSaveName = fmt.Sprintf("%02d. %s", track.TaskNum, MVInfo.Data[0].Attributes.Name)
+	// }
+	mvOutPath := filepath.Join(saveDir, fmt.Sprintf("%s.mp4", mvSaveName))
 
 	fmt.Println(MVInfo.Data[0].Attributes.Name)
 
@@ -57,6 +100,7 @@ func DownloadMusicVideo(adamID string, saveDir string, token string, storefront 
 	}
 
 	os.MkdirAll(saveDir, os.ModePerm)
+
 	videom3u8url, _ := media.ExtractVideo(mvm3u8url, cfg.MVMax)
 	videokeyAndUrls, _ := runv3.Run(adamID, videom3u8url, token, mediaUserToken, true, "")
 	_ = runv3.ExtMvData(videokeyAndUrls, vidPath)
@@ -76,11 +120,12 @@ func DownloadMusicVideo(adamID string, saveDir string, token string, storefront 
 		fmt.Sprintf("ISRC=%s", MVInfo.Data[0].Attributes.Isrc),
 	}
 
-	if MVInfo.Data[0].Attributes.ContentRating == "explicit" {
+	switch MVInfo.Data[0].Attributes.ContentRating {
+	case "explicit":
 		tags = append(tags, "rating=1")
-	} else if MVInfo.Data[0].Attributes.ContentRating == "clean" {
+	case "clean":
 		tags = append(tags, "rating=2")
-	} else {
+	default:
 		tags = append(tags, "rating=0")
 	}
 

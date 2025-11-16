@@ -48,7 +48,7 @@ func main() {
 	token, err := ampapi.GetToken()
 	if err != nil {
 		if Config.AuthorizationToken != "" && Config.AuthorizationToken != "your-authorization-token" {
-			token = strings.Replace(Config.AuthorizationToken, "Bearer ", "", -1)
+			token = strings.ReplaceAll(Config.AuthorizationToken, "Bearer ", "")
 		} else {
 			fmt.Println("Failed to get token.")
 			return
@@ -186,7 +186,7 @@ func main() {
 					fmt.Println("Invalid song URL format.")
 					continue
 				}
-				err := downloader.RipSong(songId, token, storefront, Config.MediaUserToken, Config, &counter, okDict, dl_atmos, dl_aac, dl_select)
+				err := downloader.RipSong(songId, token, storefront, Config.MediaUserToken, Config, &counter, okDict, dl_atmos, dl_aac, dl_select, debug_mode)
 				if err != nil {
 					fmt.Println("Failed to rip song:", err)
 				}
@@ -202,14 +202,14 @@ func main() {
 			if strings.Contains(urlRaw, "/album/") {
 				fmt.Println("Album")
 				storefront, albumId = helpers.CheckURL(urlRaw)
-				err := downloader.RipAlbum(albumId, token, storefront, Config.MediaUserToken, urlArg_i, Config, &counter, okDict, dl_atmos, dl_aac, dl_select, dl_song)
+				err := downloader.RipAlbum(albumId, token, storefront, Config.MediaUserToken, urlArg_i, Config, &counter, okDict, dl_atmos, dl_aac, dl_select, dl_song, debug_mode)
 				if err != nil {
 					fmt.Println("Failed to rip album:", err)
 				}
 			} else if strings.Contains(urlRaw, "/playlist/") {
 				fmt.Println("Playlist")
 				storefront, albumId = helpers.CheckURLPlaylist(urlRaw)
-				err := downloader.RipPlaylist(albumId, token, storefront, Config.MediaUserToken, Config, &counter, okDict, dl_atmos, dl_aac, dl_select)
+				err := downloader.RipPlaylist(albumId, token, storefront, Config.MediaUserToken, Config, &counter, okDict, dl_atmos, dl_aac, dl_select, debug_mode)
 				if err != nil {
 					fmt.Println("Failed to rip playlist:", err)
 				}
@@ -230,8 +230,10 @@ func main() {
 		}
 
 		// Print summary
-		fmt.Printf("=======  [\u2714 ] Completed: %d/%d  |  [\u26A0 ] Warnings: %d  |  [\u2716 ] Errors: %d  =======\n",
-			counter.Success, counter.Total, counter.Unavailable+counter.NotSong, counter.Error)
+		fmt.Println("Summary")
+		fmt.Printf("Completed: %d\n", counter.Success)
+		fmt.Printf("Warnings: %d\n", counter.Unavailable+counter.NotSong)
+		fmt.Printf("Errors: %d\n", counter.Error)
 
 		if counter.Error == 0 {
 			break
