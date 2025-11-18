@@ -29,6 +29,14 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
+type contextKey string
+
+const (
+	contextKeyPSSH      contextKey = "pssh"
+	contextKeyAdamID    contextKey = "adamId"
+	contextKeyURIPrefix contextKey = "uriPrefix"
+)
+
 type PlaybackLicense struct {
 	ErrorCode  int    `json:"errorCode"`
 	License    string `json:"license"`
@@ -61,11 +69,26 @@ func getPSSH(contentId string, kidBase64 string) (string, error) {
 }
 
 func BeforeRequest(cl *resty.Client, ctx context.Context, url string, body []byte) (*resty.Response, error) {
+	// Safely retrieve values from context with default empty strings
+	uriPrefix := ""
+	pssh := ""
+	adamId := ""
+
+	if val := ctx.Value(contextKeyURIPrefix); val != nil {
+		uriPrefix = val.(string)
+	}
+	if val := ctx.Value(contextKeyPSSH); val != nil {
+		pssh = val.(string)
+	}
+	if val := ctx.Value(contextKeyAdamID); val != nil {
+		adamId = val.(string)
+	}
+
 	jsondata := map[string]interface{}{
-		"challenge":      base64.StdEncoding.EncodeToString(body), // 'body' is passed in directly
+		"challenge":      base64.StdEncoding.EncodeToString(body),
 		"key-system":     "com.widevine.alpha",
-		"uri":            ctx.Value("uriPrefix").(string) + "," + ctx.Value("pssh").(string),
-		"adamId":         ctx.Value("adamId").(string),
+		"uri":            uriPrefix + "," + pssh,
+		"adamId":         adamId,
 		"isLibrary":      false,
 		"user-initiated": true,
 	}
@@ -232,23 +255,20 @@ func extsong(b string) bytes.Buffer {
 	}
 	defer resp.Body.Close()
 	var buffer bytes.Buffer
+	theme := progressbar.Theme{
+		Saucer:        "",
+		SaucerHead:    "",
+		SaucerPadding: "",
+		BarStart:      "",
+		BarEnd:        "",
+	}
+
 	bar := progressbar.NewOptions64(
 		resp.ContentLength,
-		progressbar.OptionClearOnFinish(),
-		progressbar.OptionSetElapsedTime(false),
-		progressbar.OptionSetPredictTime(false),
-		progressbar.OptionShowElapsedTimeOnFinish(),
-		progressbar.OptionShowCount(),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionShowBytes(true),
 		progressbar.OptionSetDescription("Downloading..."),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "",
-			SaucerHead:    "",
-			SaucerPadding: "",
-			BarStart:      "",
-			BarEnd:        "",
-		}),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetTheme(theme),
 	)
 	io.Copy(io.MultiWriter(&buffer, bar), resp.Body)
 	return buffer
@@ -271,9 +291,15 @@ func Run(adamId string, trackpath string, authtoken string, mutoken string, mvmo
 		}
 	}
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "pssh", kidBase64)
-	ctx = context.WithValue(ctx, "adamId", adamId)
-	ctx = context.WithValue(ctx, "uriPrefix", uriPrefix)
+	if kidBase64 != "" {
+		ctx = context.WithValue(ctx, contextKeyPSSH, kidBase64)
+	}
+	if adamId != "" {
+		ctx = context.WithValue(ctx, contextKeyAdamID, adamId)
+	}
+	if uriPrefix != "" {
+		ctx = context.WithValue(ctx, contextKeyURIPrefix, uriPrefix)
+	}
 	pssh, err := getPSSH("", kidBase64)
 	//fmt.Println(pssh)
 	if err != nil {
@@ -448,8 +474,30 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	limiter := make(chan struct{}, maxConcurrency)
 	client := &http.Client{}
 
-	// 初始化进度条
-	bar := progressbar.DefaultBytes(-1, "Downloading...")
+	var totalBytes int64
+	for _, url := range urls {
+		resp, err := http.Head(url)
+		if err != nil {
+			return err
+		}
+		totalBytes += resp.ContentLength
+	}
+
+	theme := progressbar.Theme{
+		Saucer:        "",
+		SaucerHead:    "",
+		SaucerPadding: "",
+		BarStart:      "",
+		BarEnd:        "",
+	}
+
+	bar := progressbar.NewOptions64(
+		totalBytes,
+		progressbar.OptionSetDescription("Downloading..."),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetTheme(theme),
+	)
 	barWriter := io.MultiWriter(tempFile, bar)
 
 	// 启动写入 Goroutine

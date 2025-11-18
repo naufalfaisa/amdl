@@ -159,6 +159,17 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 		}
 	}
 
+	switch Codec {
+	case "ATMOS":
+		singerFolder = filepath.Join(cfg.AtmosSaveFolder, helpers.SanitizeFilename(singerFoldername))
+	case "AAC":
+		singerFolder = filepath.Join(cfg.AacSaveFolder, helpers.SanitizeFilename(singerFoldername))
+	default:
+		singerFolder = filepath.Join(cfg.AlacSaveFolder, helpers.SanitizeFilename(singerFoldername))
+	}
+	os.MkdirAll(singerFolder, os.ModePerm)
+	album.SaveDir = singerFolder
+
 	stringsToJoin := []string{}
 	if meta.Data[0].Attributes.IsAppleDigitalMaster || meta.Data[0].Attributes.IsMasteredForItunes {
 		if cfg.AppleMasterChoice != "" {

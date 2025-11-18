@@ -118,16 +118,18 @@ func (a *Playlist) ShowSelect() []int {
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
 		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
 	for _, row := range data {
-		if row[2] == "explicit" {
+		switch row[2] {
+		case "explicit":
 			row[2] = "E"
-		} else if row[2] == "clean" {
+		case "clean":
 			row[2] = "C"
-		} else {
+		default:
 			row[2] = "None"
 		}
-		if row[3] == "music-videos" {
+		switch row[3] {
+		case "music-videos":
 			row[3] = "MV"
-		} else if row[3] == "songs" {
+		case "songs":
 			row[3] = "SONG"
 		}
 		table.Append(row)

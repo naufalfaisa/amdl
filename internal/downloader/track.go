@@ -68,6 +68,18 @@ func RipTrack(track *task.Track, token string, mediaUserToken string, cfg *confi
 		}
 		fmt.Println("Unavailable, trying to dl aac-lc")
 		needDlAacLc = true
+
+		track.Codec = "AAC"
+
+		parts := strings.Split(track.SaveDir, string(filepath.Separator))
+		if len(parts) >= 2 {
+			albumFolderName := parts[len(parts)-1]
+			artistFolderName := parts[len(parts)-2]
+
+			// Rebuild with AAC base folder
+			track.SaveDir = filepath.Join(cfg.AacSaveFolder, artistFolderName, albumFolderName)
+			os.MkdirAll(track.SaveDir, os.ModePerm)
+		}
 	}
 
 	needCheck := false

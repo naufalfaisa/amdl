@@ -48,8 +48,7 @@ func (b *TimedResponseBody) Read(p []byte) (int, error) {
 
 func Run(adamId string, playlistUrl string, outfile string, Config *structs.ConfigSet) error {
 	var err error
-	var optstimeout uint
-	optstimeout = 0
+	var optstimeout uint = 0
 	timeout := time.Duration(optstimeout * uint(time.Millisecond))
 	header := make(http.Header)
 
@@ -122,23 +121,20 @@ func Run(adamId string, playlistUrl string, outfile string, Config *structs.Conf
 		defer do.Body.Close()
 		if do.ContentLength < int64(Config.MaxMemoryLimit*1024*1024) {
 			var buffer bytes.Buffer
+			theme := progressbar.Theme{
+				Saucer:        "",
+				SaucerHead:    "",
+				SaucerPadding: "",
+				BarStart:      "",
+				BarEnd:        "",
+			}
+
 			bar := progressbar.NewOptions64(
 				do.ContentLength,
-				progressbar.OptionClearOnFinish(),
-				progressbar.OptionSetElapsedTime(false),
-				progressbar.OptionSetPredictTime(false),
-				progressbar.OptionShowElapsedTimeOnFinish(),
-				progressbar.OptionShowCount(),
-				progressbar.OptionEnableColorCodes(true),
-				progressbar.OptionShowBytes(true),
 				progressbar.OptionSetDescription("Downloading..."),
-				progressbar.OptionSetTheme(progressbar.Theme{
-					Saucer:        "",
-					SaucerHead:    "",
-					SaucerPadding: "",
-					BarStart:      "",
-					BarEnd:        "",
-				}),
+				progressbar.OptionShowBytes(true),
+				progressbar.OptionShowCount(),
+				progressbar.OptionSetTheme(theme),
 			)
 			io.Copy(io.MultiWriter(&buffer, bar), do.Body)
 			body = &buffer
@@ -148,8 +144,7 @@ func Run(adamId string, playlistUrl string, outfile string, Config *structs.Conf
 		}
 	}
 
-	var totalLen int64
-	totalLen = do.ContentLength
+	totalLen := do.ContentLength
 	// connect to decryptor
 	//addr := fmt.Sprintf("127.0.0.1:10020")
 	addr := Config.DecryptM3u8Port
@@ -208,22 +203,20 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 
 	// 'segment' in m3u8 == 'fragment' in mp4ff
 	//fmt.Println("Starting decryption...")
-	bar := progressbar.NewOptions64(totalLen,
-		progressbar.OptionClearOnFinish(),
-		progressbar.OptionSetElapsedTime(false),
-		progressbar.OptionSetPredictTime(false),
-		progressbar.OptionShowElapsedTimeOnFinish(),
-		progressbar.OptionShowCount(),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionShowBytes(true),
+	theme := progressbar.Theme{
+		Saucer:        "",
+		SaucerHead:    "",
+		SaucerPadding: "",
+		BarStart:      "",
+		BarEnd:        "",
+	}
+
+	bar := progressbar.NewOptions64(
+		totalLen,
 		progressbar.OptionSetDescription("Decrypting..."),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "",
-			SaucerHead:    "",
-			SaucerPadding: "",
-			BarStart:      "",
-			BarEnd:        "",
-		}),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetTheme(theme),
 	)
 	bar.Add64(int64(offset))
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
