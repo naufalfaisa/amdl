@@ -2,20 +2,12 @@
 // File: internal/helpers/validator.go
 package helpers
 
+import "slices"
+
 func IsInArray(arr []int, target int) bool {
-	for _, num := range arr {
-		if num == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(arr, target)
 }
 
 func Contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }

@@ -12,6 +12,13 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 )
 
+// Constants
+const (
+	prevPageOption = "⬅️  Previous Page"
+	nextPageOption = "➡️  Next Page"
+	defaultLimit   = 15
+)
+
 // SearchResultItem is a unified struct to hold search results for display
 type SearchResultItem struct {
 	Type   string
@@ -59,9 +66,10 @@ func PromptForQuality(item SearchResultItem, token string) (string, error) {
 		{ID: "aac", Description: "High-Quality (AAC)"},
 		{ID: "atmos", Description: "Dolby Atmos"},
 	}
-	qualityOptions := []string{}
-	for _, q := range qualities {
-		qualityOptions = append(qualityOptions, q.Description)
+
+	qualityOptions := make([]string, len(qualities))
+	for i, q := range qualities {
+		qualityOptions[i] = q.Description
 	}
 
 	prompt := &survey.Select{
@@ -73,26 +81,151 @@ func PromptForQuality(item SearchResultItem, token string) (string, error) {
 	selectedIndex := 0
 	err := survey.AskOne(prompt, &selectedIndex)
 	if err != nil {
-		// This can happen if the user presses Ctrl+C
 		return "", nil
 	}
 
 	return qualities[selectedIndex].ID, nil
 }
 
+// validateSearchType checks if the search type is valid
+func validateSearchType(searchType string) error {
+	validTypes := map[string]bool{"album": true, "song": true, "artist": true}
+	if !validTypes[searchType] {
+		return fmt.Errorf("invalid search type: %s. Use 'album', 'song', or 'artist'", searchType)
+	}
+	return nil
+}
+
+// extractYear safely extracts year from date string
+func extractYear(dateStr string) string {
+	if len(dateStr) >= 4 {
+		return dateStr[:4]
+	}
+	return ""
+}
+
+// parseAlbumResults parses album search results
+func parseAlbumResults(albums *ampapi.AlbumResults) ([]SearchResultItem, []string, bool) {
+	var items []SearchResultItem
+	var displayOptions []string
+	hasNext := false
+
+	if albums != nil {
+		for _, item := range albums.Data {
+			year := extractYear(item.Attributes.ReleaseDate)
+			trackInfo := fmt.Sprintf("%d tracks", item.Attributes.TrackCount)
+			detail := fmt.Sprintf("%s (%s, %s)", item.Attributes.ArtistName, year, trackInfo)
+			displayOptions = append(displayOptions, fmt.Sprintf("%s - %s", item.Attributes.Name, detail))
+			items = append(items, SearchResultItem{
+				Type: "Album",
+				URL:  item.Attributes.URL,
+				ID:   item.ID,
+			})
+		}
+		hasNext = albums.Next != ""
+	}
+
+	return items, displayOptions, hasNext
+}
+
+// parseSongResults parses song search results
+func parseSongResults(songs *ampapi.SongResults) ([]SearchResultItem, []string, bool) {
+	var items []SearchResultItem
+	var displayOptions []string
+	hasNext := false
+
+	if songs != nil {
+		for _, item := range songs.Data {
+			detail := fmt.Sprintf("%s (%s)", item.Attributes.ArtistName, item.Attributes.AlbumName)
+			displayOptions = append(displayOptions, fmt.Sprintf("%s - %s", item.Attributes.Name, detail))
+			items = append(items, SearchResultItem{
+				Type: "Song",
+				URL:  item.Attributes.URL,
+				ID:   item.ID,
+			})
+		}
+		hasNext = songs.Next != ""
+	}
+
+	return items, displayOptions, hasNext
+}
+
+// parseArtistResults parses artist search results
+func parseArtistResults(artists *ampapi.ArtistResults) ([]SearchResultItem, []string, bool) {
+	var items []SearchResultItem
+	var displayOptions []string
+	hasNext := false
+
+	if artists != nil {
+		for _, item := range artists.Data {
+			detail := ""
+			if len(item.Attributes.GenreNames) > 0 {
+				detail = strings.Join(item.Attributes.GenreNames, ", ")
+			}
+			displayOptions = append(displayOptions, fmt.Sprintf("%s (%s)", item.Attributes.Name, detail))
+			items = append(items, SearchResultItem{
+				Type: "Artist",
+				URL:  item.Attributes.URL,
+				ID:   item.ID,
+			})
+		}
+		hasNext = artists.Next != ""
+	}
+
+	return items, displayOptions, hasNext
+}
+
+// parseSearchResults parses search results based on search type
+func parseSearchResults(searchType string, searchResp *ampapi.SearchResp) ([]SearchResultItem, []string, bool) {
+	switch searchType {
+	case "album":
+		return parseAlbumResults(searchResp.Results.Albums)
+	case "song":
+		return parseSongResults(searchResp.Results.Songs)
+	case "artist":
+		return parseArtistResults(searchResp.Results.Artists)
+	default:
+		return nil, nil, false
+	}
+}
+
+// buildDisplayOptions adds pagination options to display
+func buildDisplayOptions(options []string, offset int, hasNext bool) []string {
+	result := []string{}
+
+	if offset > 0 {
+		result = append(result, prevPageOption)
+	}
+
+	result = append(result, options...)
+
+	if hasNext {
+		result = append(result, nextPageOption)
+	}
+
+	return result
+}
+
+// adjustItemIndex adjusts the selected index based on pagination
+func adjustItemIndex(selectedIndex int, offset int) int {
+	if offset > 0 {
+		return selectedIndex - 1
+	}
+	return selectedIndex
+}
+
 // Handle manages the entire interactive search process
 func Handle(searchType string, queryParts []string, token string, cfg *structs.ConfigSet, dlAtmos bool, dlAAC bool, dlSong *bool, aacType *string) (string, error) {
 	query := strings.Join(queryParts, " ")
-	validTypes := map[string]bool{"album": true, "song": true, "artist": true}
-	if !validTypes[searchType] {
-		return "", fmt.Errorf("invalid search type: %s. Use 'album', 'song', or 'artist'", searchType)
+
+	if err := validateSearchType(searchType); err != nil {
+		return "", err
 	}
 
 	fmt.Printf("Searching for %ss: \"%s\" in storefront \"%s\"\n", searchType, query, cfg.Storefront)
 
 	offset := 0
-	limit := 15 // Increased limit for better navigation
-
+	limit := defaultLimit
 	apiSearchType := searchType + "s"
 
 	for {
@@ -101,98 +234,40 @@ func Handle(searchType string, queryParts []string, token string, cfg *structs.C
 			return "", fmt.Errorf("error fetching search results: %w", err)
 		}
 
-		var items []SearchResultItem
-		var displayOptions []string
-		hasNext := false
-
-		// Special options for navigation
-		const prevPageOpt = "⬅️  Previous Page"
-		const nextPageOpt = "➡️  Next Page"
-
-		// Add previous page option if applicable
-		if offset > 0 {
-			displayOptions = append(displayOptions, prevPageOpt)
-		}
-
-		switch searchType {
-		case "album":
-			if searchResp.Results.Albums != nil {
-				for _, item := range searchResp.Results.Albums.Data {
-					year := ""
-					if len(item.Attributes.ReleaseDate) >= 4 {
-						year = item.Attributes.ReleaseDate[:4]
-					}
-					trackInfo := fmt.Sprintf("%d tracks", item.Attributes.TrackCount)
-					detail := fmt.Sprintf("%s (%s, %s)", item.Attributes.ArtistName, year, trackInfo)
-					displayOptions = append(displayOptions, fmt.Sprintf("%s - %s", item.Attributes.Name, detail))
-					items = append(items, SearchResultItem{Type: "Album", URL: item.Attributes.URL, ID: item.ID})
-				}
-				hasNext = searchResp.Results.Albums.Next != ""
-			}
-		case "song":
-			if searchResp.Results.Songs != nil {
-				for _, item := range searchResp.Results.Songs.Data {
-					detail := fmt.Sprintf("%s (%s)", item.Attributes.ArtistName, item.Attributes.AlbumName)
-					displayOptions = append(displayOptions, fmt.Sprintf("%s - %s", item.Attributes.Name, detail))
-					items = append(items, SearchResultItem{Type: "Song", URL: item.Attributes.URL, ID: item.ID})
-				}
-				hasNext = searchResp.Results.Songs.Next != ""
-			}
-		case "artist":
-			if searchResp.Results.Artists != nil {
-				for _, item := range searchResp.Results.Artists.Data {
-					detail := ""
-					if len(item.Attributes.GenreNames) > 0 {
-						detail = strings.Join(item.Attributes.GenreNames, ", ")
-					}
-					displayOptions = append(displayOptions, fmt.Sprintf("%s (%s)", item.Attributes.Name, detail))
-					items = append(items, SearchResultItem{Type: "Artist", URL: item.Attributes.URL, ID: item.ID})
-				}
-				hasNext = searchResp.Results.Artists.Next != ""
-			}
-		}
+		items, displayOptions, hasNext := parseSearchResults(searchType, searchResp)
 
 		if len(items) == 0 && offset == 0 {
 			fmt.Println("No results found.")
 			return "", nil
 		}
 
-		// Add next page option if applicable
-		if hasNext {
-			displayOptions = append(displayOptions, nextPageOpt)
-		}
+		displayOptions = buildDisplayOptions(displayOptions, offset, hasNext)
 
 		prompt := &survey.Select{
 			Message:  "Use arrow keys to navigate, Enter to select:",
 			Options:  displayOptions,
-			PageSize: limit, // Show a full page of results
+			PageSize: limit,
 		}
 
 		selectedIndex := 0
 		err = survey.AskOne(prompt, &selectedIndex)
 		if err != nil {
-			// User pressed Ctrl+C
 			return "", nil
 		}
 
 		selectedOption := displayOptions[selectedIndex]
 
 		// Handle pagination
-		if selectedOption == nextPageOpt {
+		if selectedOption == nextPageOption {
 			offset += limit
 			continue
 		}
-		if selectedOption == prevPageOpt {
+		if selectedOption == prevPageOption {
 			offset -= limit
 			continue
 		}
 
-		// Adjust index to match the `items` slice if "Previous Page" was an option
-		itemIndex := selectedIndex
-		if offset > 0 {
-			itemIndex--
-		}
-
+		itemIndex := adjustItemIndex(selectedIndex, offset)
 		selectedItem := items[itemIndex]
 
 		// Automatically set single song download flag
@@ -204,7 +279,7 @@ func Handle(searchType string, queryParts []string, token string, cfg *structs.C
 		if err != nil {
 			return "", fmt.Errorf("could not process quality selection: %w", err)
 		}
-		if quality == "" { // User cancelled quality selection
+		if quality == "" {
 			fmt.Println("Selection cancelled.")
 			return "", nil
 		}

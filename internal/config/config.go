@@ -3,36 +3,53 @@
 package config
 
 import (
-	"main/utils/structs"
+	"fmt"
 	"os"
+
+	"main/utils/structs"
 
 	"gopkg.in/yaml.v2"
 )
 
+// Config is an alias for the main configuration structure
 type Config = structs.ConfigSet
 
+// Constants
+const (
+	defaultStorefront = "us"
+	storefrontCodeLen = 2
+)
+
+// Load reads and parses configuration from a YAML file
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read config file: %w", err)
 	}
 
 	var cfg Config
-	err = yaml.Unmarshal(data, &cfg)
-	if err != nil {
-		return nil, err
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("unmarshal yaml: %w", err)
 	}
 
-	if len(cfg.Storefront) != 2 {
-		cfg.Storefront = "us"
+	// Set default storefront if invalid
+	if len(cfg.Storefront) != storefrontCodeLen {
+		cfg.Storefront = defaultStorefront
 	}
 
 	return &cfg, nil
 }
 
+// LimitString truncates a string to maxLen characters (rune-aware for Unicode)
 func LimitString(s string, maxLen int) string {
-	if len([]rune(s)) > maxLen {
-		return string([]rune(s)[:maxLen])
+	if maxLen < 0 {
+		return s
 	}
-	return s
+
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+
+	return string(runes[:maxLen])
 }

@@ -115,15 +115,6 @@ func CheckArtist(artistUrl string, token string, relationship string, cfg *confi
 		table.SetHeader([]string{"", "MV Name", "Date", "MV ID"})
 	}
 	table.SetRowLine(false)
-	table.SetHeaderColor(tablewriter.Colors{},
-		tablewriter.Colors{tablewriter.FgRedColor, tablewriter.Bold},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
-
-	table.SetColumnColor(tablewriter.Colors{tablewriter.FgCyanColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgRedColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
 
 	for i, v := range options {
 		urls = append(urls, v[3])

@@ -175,12 +175,11 @@ func RipStation(albumId string, token string, storefront string, mediaUserToken 
 
 	trackTotal := len(station.Tracks)
 	arr := make([]int, trackTotal)
-	for i := 0; i < trackTotal; i++ {
+	for i := range trackTotal {
 		arr[i] = i + 1
 	}
 
-	var selected []int
-	selected = arr
+	selected := arr
 
 	for i := range station.Tracks {
 		i++

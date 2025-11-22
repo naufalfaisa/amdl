@@ -230,7 +230,6 @@ func main() {
 		}
 
 		// Print summary
-		fmt.Println("Summary")
 		fmt.Printf("Completed: %d\n", counter.Success)
 		fmt.Printf("Warnings: %d\n", counter.Unavailable+counter.NotSong)
 		fmt.Printf("Errors: %d\n", counter.Error)

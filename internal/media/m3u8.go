@@ -9,54 +9,83 @@ import (
 	"net"
 )
 
+const (
+	itemTypeSong = "song"
+	noneResponse = "none"
+)
+
 // CheckM3u8 connects to device server to get enhanced m3u8 URL
 func CheckM3u8(adamID string, itemType string, getFromDevice bool, port string) (string, error) {
-	var enhancedHls string
-
 	if !getFromDevice {
-		return "none", nil
+		return noneResponse, nil
 	}
 
-	conn, err := net.Dial("tcp", port)
+	conn, err := connectToDevice(port)
 	if err != nil {
-		fmt.Println("Error connecting to device:", err)
-		return "none", err
+		return noneResponse, err
 	}
 	defer conn.Close()
 
-	if itemType == "song" {
+	if itemType == itemTypeSong {
 		fmt.Println("Connected to device")
 	}
 
-	adamIDBuffer := []byte(adamID)
-	lengthBuffer := []byte{byte(len(adamIDBuffer))}
-
-	_, err = conn.Write(lengthBuffer)
-	if err != nil {
-		fmt.Println("Error writing length to device:", err)
-		return "none", err
+	if err := sendAdamID(conn, adamID); err != nil {
+		return noneResponse, err
 	}
 
-	_, err = conn.Write(adamIDBuffer)
+	enhancedHls, err := receiveResponse(conn, itemType)
 	if err != nil {
-		fmt.Println("Error writing adamID to device:", err)
-		return "none", err
+		return noneResponse, err
 	}
 
+	return enhancedHls, nil
+}
+
+// connectToDevice establishes TCP connection to device server
+func connectToDevice(port string) (net.Conn, error) {
+	conn, err := net.Dial("tcp", port)
+	if err != nil {
+		return nil, fmt.Errorf("connect to device: %w", err)
+	}
+	return conn, nil
+}
+
+// sendAdamID sends adamID to device with length prefix
+func sendAdamID(conn net.Conn, adamID string) error {
+	adamIDBytes := []byte(adamID)
+	lengthByte := []byte{byte(len(adamIDBytes))}
+
+	// Send length prefix
+	if _, err := conn.Write(lengthByte); err != nil {
+		return fmt.Errorf("write length to device: %w", err)
+	}
+
+	// Send adamID
+	if _, err := conn.Write(adamIDBytes); err != nil {
+		return fmt.Errorf("write adamID to device: %w", err)
+	}
+
+	return nil
+}
+
+// receiveResponse reads and parses response from device
+func receiveResponse(conn net.Conn, itemType string) (string, error) {
 	response, err := bufio.NewReader(conn).ReadBytes('\n')
 	if err != nil {
-		fmt.Println("Error reading response from device:", err)
-		return "none", err
+		return "", fmt.Errorf("read response from device: %w", err)
 	}
 
 	response = bytes.TrimSpace(response)
-	if len(response) > 0 {
-		if itemType == "song" {
-			fmt.Println("Received URL:", string(response))
-		}
-		enhancedHls = string(response)
-	} else {
-		fmt.Println("Received an empty response")
+
+	if len(response) == 0 {
+		return "", fmt.Errorf("received empty response from device")
+	}
+
+	enhancedHls := string(response)
+
+	if itemType == itemTypeSong {
+		fmt.Println("Received URL:", enhancedHls)
 	}
 
 	return enhancedHls, nil
