@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/helpers/validator.go
+// File: internal/helpers/validation.go
 package helpers
 
 import "slices"

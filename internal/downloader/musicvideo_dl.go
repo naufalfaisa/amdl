@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/downloader/musicvideo.go
+// File: internal/downloader/musicvideo_dl.go
 package downloader
 
 import (
@@ -14,9 +14,9 @@ import (
 	"main/internal/config"
 	"main/internal/helpers"
 	"main/internal/media"
-	"main/utils/ampapi"
-	"main/utils/runv3"
-	"main/utils/task"
+	"main/pkg/ampapi"
+	"main/pkg/runv3"
+	"main/pkg/task"
 )
 
 // DownloadMusicVideo downloads a music video

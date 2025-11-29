@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/media/extractor.go
+// File: internal/media/media_extractor.go
 package media
 
 import (
@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"main/utils/structs"
+	"main/pkg/structs"
 
 	"github.com/grafov/m3u8"
 	"github.com/olekukonko/tablewriter"

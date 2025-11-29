@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/helpers/file.go
+// File: internal/helpers/filesystem.go
 package helpers
 
 import (

@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/downloader/artist.go
+// File: internal/downloader/artist_dl.go
 package downloader
 
 import (
@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"main/internal/config"
-	"main/utils/structs"
+	"main/pkg/structs"
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"

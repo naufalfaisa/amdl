@@ -12,8 +12,8 @@ import (
 	"main/internal/downloader"
 	"main/internal/helpers"
 	"main/internal/search"
-	"main/utils/ampapi"
-	"main/utils/structs"
+	"main/pkg/ampapi"
+	"main/pkg/structs"
 
 	"github.com/spf13/pflag"
 )

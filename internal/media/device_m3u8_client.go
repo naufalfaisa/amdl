@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/media/m3u8.go
+// File: internal/media/device_m3u8_client.go
 package media
 
 import (

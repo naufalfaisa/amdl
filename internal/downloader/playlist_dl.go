@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/downloader/album.go
+// File: internal/downloader/playlist_dl.go
 package downloader
 
 import (
@@ -12,24 +12,24 @@ import (
 	"main/internal/config"
 	"main/internal/helpers"
 	"main/internal/media"
-	"main/utils/ampapi"
-	"main/utils/structs"
-	"main/utils/task"
+	"main/pkg/ampapi"
+	"main/pkg/structs"
+	"main/pkg/task"
 )
 
-// RipAlbum downloads an entire album
-func RipAlbum(albumId string, token string, storefront string, mediaUserToken string, urlArg_i string,
+// RipPlaylist downloads an entire playlist
+func RipPlaylist(playlistId string, token string, storefront string, mediaUserToken string,
 	cfg *config.Config, counter *structs.Counter, okDict map[string][]int,
-	dlAtmos bool, dlAAC bool, dlSelect bool, dlSong bool, debugMode bool) error {
+	dlAtmos bool, dlAAC bool, dlSelect bool, debugMode bool) error {
 
-	album := task.NewAlbum(storefront, albumId)
-	err := album.GetResp(token, cfg.Language)
+	playlist := task.NewPlaylist(storefront, playlistId)
+	err := playlist.GetResp(token, cfg.Language)
 	if err != nil {
-		fmt.Println("Failed to get album response.")
+		fmt.Println("Failed to get playlist response.")
 		return err
 	}
 
-	meta := album.Resp
+	meta := playlist.Resp
 
 	if debugMode {
 		fmt.Println(meta.Data[0].Attributes.ArtistName)
@@ -40,7 +40,7 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 			fmt.Printf("Track %d of %d:\n", trackNum, len(meta.Data[0].Relationships.Tracks.Data))
 			fmt.Printf("%02d. %s\n", trackNum, track.Attributes.Name)
 
-			manifest, err := ampapi.GetSongResp(storefront, track.ID, album.Language, token)
+			manifest, err := ampapi.GetSongResp(storefront, track.ID, playlist.Language, token)
 			if err != nil {
 				fmt.Printf("Failed to get manifest for track %d: %v\n", trackNum, err)
 				continue
@@ -88,23 +88,15 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 	} else {
 		Codec = "ALAC"
 	}
-	album.Codec = Codec
+	playlist.Codec = Codec
 
 	var singerFoldername string
 	if cfg.ArtistFolderFormat != "" {
-		if len(meta.Data[0].Relationships.Artists.Data) > 0 {
-			singerFoldername = strings.NewReplacer(
-				"{UrlArtistName}", config.LimitString(meta.Data[0].Attributes.ArtistName, cfg.LimitMax),
-				"{ArtistName}", config.LimitString(meta.Data[0].Attributes.ArtistName, cfg.LimitMax),
-				"{ArtistId}", meta.Data[0].Relationships.Artists.Data[0].ID,
-			).Replace(cfg.ArtistFolderFormat)
-		} else {
-			singerFoldername = strings.NewReplacer(
-				"{UrlArtistName}", config.LimitString(meta.Data[0].Attributes.ArtistName, cfg.LimitMax),
-				"{ArtistName}", config.LimitString(meta.Data[0].Attributes.ArtistName, cfg.LimitMax),
-				"{ArtistId}", "",
-			).Replace(cfg.ArtistFolderFormat)
-		}
+		singerFoldername = strings.NewReplacer(
+			"{ArtistName}", "Apple Music",
+			"{ArtistId}", "",
+			"{UrlArtistName}", "Apple Music",
+		).Replace(cfg.ArtistFolderFormat)
 		if strings.HasSuffix(singerFoldername, ".") {
 			singerFoldername = strings.ReplaceAll(singerFoldername, ".", "")
 		}
@@ -120,7 +112,7 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 		singerFolder = filepath.Join(cfg.AacSaveFolder, helpers.SanitizeFilename(singerFoldername))
 	}
 	os.MkdirAll(singerFolder, os.ModePerm)
-	album.SaveDir = singerFolder
+	playlist.SaveDir = singerFolder
 
 	var Quality string
 	if strings.Contains(cfg.AlbumFolderFormat, "Quality") {
@@ -129,7 +121,7 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 		} else if dlAAC && cfg.AacType == "aac-lc" {
 			Quality = "256Kbps"
 		} else {
-			manifest1, err := ampapi.GetSongResp(storefront, meta.Data[0].Relationships.Tracks.Data[0].ID, album.Language, token)
+			manifest1, err := ampapi.GetSongResp(storefront, meta.Data[0].Relationships.Tracks.Data[0].ID, playlist.Language, token)
 			if err != nil {
 				fmt.Println("Failed to get manifest.\n", err)
 			} else {
@@ -159,17 +151,6 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 		}
 	}
 
-	switch Codec {
-	case "ATMOS":
-		singerFolder = filepath.Join(cfg.AtmosSaveFolder, helpers.SanitizeFilename(singerFoldername))
-	case "AAC":
-		singerFolder = filepath.Join(cfg.AacSaveFolder, helpers.SanitizeFilename(singerFoldername))
-	default:
-		singerFolder = filepath.Join(cfg.AlacSaveFolder, helpers.SanitizeFilename(singerFoldername))
-	}
-	os.MkdirAll(singerFolder, os.ModePerm)
-	album.SaveDir = singerFolder
-
 	stringsToJoin := []string{}
 	if meta.Data[0].Attributes.IsAppleDigitalMaster || meta.Data[0].Attributes.IsMasteredForItunes {
 		if cfg.AppleMasterChoice != "" {
@@ -188,42 +169,33 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 	}
 	Tag_string := strings.Join(stringsToJoin, " ")
 
-	var albumFolderName string
-	albumFolderName = strings.NewReplacer(
-		"{ReleaseDate}", meta.Data[0].Attributes.ReleaseDate,
-		"{ReleaseYear}", meta.Data[0].Attributes.ReleaseDate[:4],
-		"{ArtistName}", config.LimitString(meta.Data[0].Attributes.ArtistName, cfg.LimitMax),
-		"{AlbumName}", config.LimitString(meta.Data[0].Attributes.Name, cfg.LimitMax),
-		"{UPC}", meta.Data[0].Attributes.Upc,
-		"{RecordLabel}", meta.Data[0].Attributes.RecordLabel,
-		"{Copyright}", meta.Data[0].Attributes.Copyright,
-		"{AlbumId}", albumId,
+	playlistFolder := strings.NewReplacer(
+		"{ArtistName}", "Apple Music",
+		"{PlaylistName}", config.LimitString(meta.Data[0].Attributes.Name, cfg.LimitMax),
+		"{PlaylistId}", playlistId,
 		"{Quality}", Quality,
 		"{Codec}", Codec,
 		"{Tag}", Tag_string,
-	).Replace(cfg.AlbumFolderFormat)
+	).Replace(cfg.PlaylistFolderFormat)
 
-	if strings.HasSuffix(albumFolderName, ".") {
-		albumFolderName = strings.ReplaceAll(albumFolderName, ".", "")
+	if strings.HasSuffix(playlistFolder, ".") {
+		playlistFolder = strings.ReplaceAll(playlistFolder, ".", "")
 	}
-	albumFolderName = strings.TrimSpace(albumFolderName)
-	albumFolderPath := filepath.Join(singerFolder, helpers.SanitizeFilename(albumFolderName))
-	os.MkdirAll(albumFolderPath, os.ModePerm)
-	album.SaveName = albumFolderName
-	fmt.Println(albumFolderName)
+	playlistFolder = strings.TrimSpace(playlistFolder)
+	playlistFolderPath := filepath.Join(singerFolder, helpers.SanitizeFilename(playlistFolder))
+	os.MkdirAll(playlistFolderPath, os.ModePerm)
+	playlist.SaveName = playlistFolder
+	fmt.Println(playlistFolder)
 
-	if cfg.SaveArtistCover && len(meta.Data[0].Relationships.Artists.Data) > 0 {
-		if meta.Data[0].Relationships.Artists.Data[0].Attributes.Artwork.Url != "" {
-			_, err = artwork.WriteCover(singerFolder, "folder", meta.Data[0].Relationships.Artists.Data[0].Attributes.Artwork.Url, cfg.CoverFormat, cfg.CoverSize)
-			if err != nil {
-				fmt.Println("Failed to write artist cover.")
-			}
-		}
-	}
-
-	covPath, err := artwork.WriteCover(albumFolderPath, "cover", meta.Data[0].Attributes.Artwork.URL, cfg.CoverFormat, cfg.CoverSize)
+	covPath, err := artwork.WriteCover(playlistFolderPath, "cover", meta.Data[0].Attributes.Artwork.URL, cfg.CoverFormat, cfg.CoverSize)
 	if err != nil {
 		fmt.Println("Failed to write cover.")
+	}
+
+	for i := range playlist.Tracks {
+		playlist.Tracks[i].CoverPath = covPath
+		playlist.Tracks[i].SaveDir = playlistFolderPath
+		playlist.Tracks[i].Codec = Codec
 	}
 
 	if cfg.SaveAnimatedArtwork {
@@ -234,13 +206,7 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 		if meta.Data[0].Attributes.EditorialVideo.MotionDetailTall.Video != "" {
 			tallUrl, _ = media.ExtractVideo(meta.Data[0].Attributes.EditorialVideo.MotionDetailTall.Video, 9999)
 		}
-		artwork.ProcessAnimatedArtwork(albumFolderPath, squareUrl, tallUrl, cfg.EmbyAnimatedArtwork)
-	}
-
-	for i := range album.Tracks {
-		album.Tracks[i].CoverPath = covPath
-		album.Tracks[i].SaveDir = albumFolderPath
-		album.Tracks[i].Codec = Codec
+		artwork.ProcessAnimatedArtwork(playlistFolderPath, squareUrl, tallUrl, cfg.EmbyAnimatedArtwork)
 	}
 
 	trackTotal := len(meta.Data[0].Relationships.Tracks.Data)
@@ -249,35 +215,22 @@ func RipAlbum(albumId string, token string, storefront string, mediaUserToken st
 		arr[i] = i + 1
 	}
 
-	if dlSong {
-		if urlArg_i == "" {
-		} else {
-			for i := range album.Tracks {
-				if urlArg_i == album.Tracks[i].ID {
-					RipTrack(&album.Tracks[i], token, mediaUserToken, cfg, counter, okDict, dlAtmos, dlAAC)
-					return nil
-				}
-			}
-		}
-		return nil
-	}
-
 	var selected []int
 	if !dlSelect {
 		selected = arr
 	} else {
-		selected = album.ShowSelect()
+		selected = playlist.ShowSelect()
 	}
 
-	for i := range album.Tracks {
+	for i := range playlist.Tracks {
 		i++
-		if helpers.IsInArray(okDict[albumId], i) {
+		if helpers.IsInArray(okDict[playlistId], i) {
 			counter.Total++
 			counter.Success++
 			continue
 		}
 		if helpers.IsInArray(selected, i) {
-			RipTrack(&album.Tracks[i-1], token, mediaUserToken, cfg, counter, okDict, dlAtmos, dlAAC)
+			RipTrack(&playlist.Tracks[i-1], token, mediaUserToken, cfg, counter, okDict, dlAtmos, dlAAC)
 		}
 	}
 

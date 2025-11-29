@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/helpers/url.go
+// File: internal/helpers/url_utils.go
 package helpers
 
 import (

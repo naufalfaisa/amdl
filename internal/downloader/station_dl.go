@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/downloader/station.go
+// File: internal/downloader/station-dl.go
 package downloader
 
 import (
@@ -13,10 +13,10 @@ import (
 	"main/internal/config"
 	"main/internal/helpers"
 	"main/internal/media"
-	"main/utils/ampapi"
-	"main/utils/runv3"
-	"main/utils/structs"
-	"main/utils/task"
+	"main/pkg/ampapi"
+	"main/pkg/runv3"
+	"main/pkg/structs"
+	"main/pkg/task"
 )
 
 // RipStation downloads station/radio content

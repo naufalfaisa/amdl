@@ -31,7 +31,7 @@ go run main.go --search [song/album/artist] "search_term"
 
 ## Usage
 ### General Steps
-1. Ensure the decryption wrapper is running: [wrapper](https://github.com/zhaarey/wrapper)
+1. Ensure the decryption wrapper is running: [WorldObservationLog/wrapper](https://github.com/naufalfaisa/wrapper.git)
 2. Download an album: 
 ```bash
 go run main.go <album_url>

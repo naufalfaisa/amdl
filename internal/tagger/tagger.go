@@ -5,7 +5,7 @@ package tagger
 import (
 	"strconv"
 
-	"main/utils/task"
+	"main/pkg/task"
 
 	"github.com/zhaarey/go-mp4tag"
 )

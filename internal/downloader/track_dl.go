@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/downloader/track.go
+// File: internal/downloader/track_dl.go
 package downloader
 
 import (
@@ -15,11 +15,11 @@ import (
 	"main/internal/helpers"
 	"main/internal/media"
 	"main/internal/tagger"
-	"main/utils/lyrics"
-	"main/utils/runv2"
-	"main/utils/runv3"
-	"main/utils/structs"
-	"main/utils/task"
+	"main/pkg/lyrics"
+	"main/pkg/runv2"
+	"main/pkg/runv3"
+	"main/pkg/structs"
+	"main/pkg/task"
 )
 
 // RipTrack downloads and processes a single track

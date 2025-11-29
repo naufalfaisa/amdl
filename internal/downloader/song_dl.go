@@ -1,5 +1,5 @@
 // ============================================
-// File: internal/downloader/song.go
+// File: internal/downloader/song_dl.go
 package downloader
 
 import (
@@ -7,8 +7,8 @@ import (
 
 	"main/internal/config"
 	"main/internal/helpers"
-	"main/utils/ampapi"
-	"main/utils/structs"
+	"main/pkg/ampapi"
+	"main/pkg/structs"
 )
 
 // GetUrlSong converts song URL to album URL

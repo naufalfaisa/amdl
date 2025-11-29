@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"main/utils/structs"
-	"main/utils/task"
+	"main/pkg/structs"
+	"main/pkg/task"
 )
 
 // Constants
