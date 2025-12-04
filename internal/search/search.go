@@ -14,8 +14,8 @@ import (
 
 // Constants
 const (
-	prevPageOption = "⬅️  Previous Page"
-	nextPageOption = "➡️  Next Page"
+	prevPageOption = "<  Previous Page"
+	nextPageOption = ">  Next Page"
 	defaultLimit   = 15
 )
 
@@ -53,10 +53,13 @@ func SetDlFlags(quality string, dlAtmos *bool, dlAAC *bool, aacType *string) {
 }
 
 // PromptForQuality asks the user to select a download quality for the chosen media
+// Skip prompt for Artist type - quality will be selected after choosing specific album
 func PromptForQuality(item SearchResultItem, token string) (string, error) {
+	// For Artist, skip quality selection here - it will be prompted later
+	// after user selects specific albums in CheckArtist function
 	if item.Type == "Artist" {
-		fmt.Println("Artist selected. Proceeding to list all albums/videos.")
-		return "default", nil
+		fmt.Println("Artist selected. Proceeding to list albums...")
+		return "skip", nil // Use "skip" instead of "default" to indicate deferred selection
 	}
 
 	fmt.Printf("\nFetching available qualities for: %s\n", item.Name)
@@ -284,7 +287,9 @@ func Handle(searchType string, queryParts []string, token string, cfg *structs.C
 			return "", nil
 		}
 
-		if quality != "default" {
+		// Only set quality flags if not skipped (i.e., not an Artist)
+		// For Artist, quality will be set later after album selection
+		if quality != "skip" {
 			SetDlFlags(quality, &dlAtmos, &dlAAC, aacType)
 		}
 

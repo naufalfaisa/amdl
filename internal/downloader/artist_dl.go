@@ -19,9 +19,65 @@ import (
 	"main/internal/config"
 	"main/pkg/structs"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 )
+
+// QualityOption holds information about a downloadable quality
+type QualityOption struct {
+	ID          string
+	Description string
+}
+
+// PromptForQualityAfterSelection asks user to select download quality after choosing albums
+func PromptForQualityAfterSelection(dlAtmos *bool, dlAAC *bool, aacType *string) error {
+	fmt.Println("\n--- Quality Selection ---")
+
+	qualities := []QualityOption{
+		{ID: "alac", Description: "Lossless (ALAC)"},
+		{ID: "aac", Description: "High-Quality (AAC)"},
+		{ID: "atmos", Description: "Dolby Atmos"},
+	}
+
+	qualityOptions := make([]string, len(qualities))
+	for i, q := range qualities {
+		qualityOptions[i] = q.Description
+	}
+
+	prompt := &survey.Select{
+		Message:  "Select a quality to download for the selected album(s):",
+		Options:  qualityOptions,
+		PageSize: 5,
+	}
+
+	selectedIndex := 0
+	err := survey.AskOne(prompt, &selectedIndex)
+	if err != nil {
+		return err
+	}
+
+	selectedQuality := qualities[selectedIndex].ID
+
+	// Reset flags
+	*dlAtmos = false
+	*dlAAC = false
+
+	// Set the appropriate flag based on selection
+	switch selectedQuality {
+	case "atmos":
+		*dlAtmos = true
+		fmt.Println("Quality set to: Dolby Atmos")
+	case "aac":
+		*dlAAC = true
+		*aacType = "aac"
+		fmt.Println("Quality set to: High-Quality (AAC)")
+	case "alac":
+		fmt.Println("Quality set to: Lossless (ALAC)")
+	}
+
+	return nil
+}
 
 // GetUrlArtistName fetches artist name and ID from artist URL
 func GetUrlArtistName(artistUrl string, token string, cfg *config.Config) (string, string, error) {
@@ -59,7 +115,8 @@ func GetUrlArtistName(artistUrl string, token string, cfg *config.Config) (strin
 }
 
 // CheckArtist fetches and displays artist's albums or music videos, returns selected URLs
-func CheckArtist(artistUrl string, token string, relationship string, cfg *config.Config, artistSelect bool) ([]string, error) {
+// Added quality selection parameters to prompt after album selection
+func CheckArtist(artistUrl string, token string, relationship string, cfg *config.Config, artistSelect bool, dlAtmos *bool, dlAAC *bool, aacType *string) ([]string, error) {
 	storefront, artistId := checkUrlArtist(artistUrl)
 	Num := 0
 	var args []string
@@ -115,7 +172,15 @@ func CheckArtist(artistUrl string, token string, relationship string, cfg *confi
 		table.SetHeader([]string{"", "MV Name", "Date", "MV ID"})
 	}
 	table.SetRowLine(false)
+	table.SetHeaderColor(tablewriter.Colors{},
+		tablewriter.Colors{tablewriter.FgRedColor, tablewriter.Bold},
+		tablewriter.Colors{tablewriter.FgBlackColor, tablewriter.Bold},
+		tablewriter.Colors{tablewriter.FgBlackColor, tablewriter.Bold})
 
+	table.SetColumnColor(tablewriter.Colors{tablewriter.FgCyanColor},
+		tablewriter.Colors{tablewriter.Bold, tablewriter.FgRedColor},
+		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor},
+		tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlackColor})
 	for i, v := range options {
 		urls = append(urls, v[3])
 		options[i] = append([]string{fmt.Sprint(i + 1)}, v[:3]...)
@@ -125,6 +190,15 @@ func CheckArtist(artistUrl string, token string, relationship string, cfg *confi
 
 	if artistSelect {
 		fmt.Println("You have selected all options:")
+
+		// Prompt for quality before downloading all albums
+		if relationship == "albums" {
+			err := PromptForQualityAfterSelection(dlAtmos, dlAAC, aacType)
+			if err != nil {
+				return nil, fmt.Errorf("quality selection cancelled")
+			}
+		}
+
 		return urls, nil
 	}
 
@@ -137,6 +211,15 @@ func CheckArtist(artistUrl string, token string, relationship string, cfg *confi
 	input = strings.TrimSpace(input)
 	if input == "all" {
 		fmt.Println("You have selected all options:")
+
+		// Prompt for quality before downloading all albums
+		if relationship == "albums" {
+			err := PromptForQualityAfterSelection(dlAtmos, dlAAC, aacType)
+			if err != nil {
+				return nil, fmt.Errorf("quality selection cancelled")
+			}
+		}
+
 		return urls, nil
 	}
 
@@ -182,6 +265,14 @@ func CheckArtist(artistUrl string, token string, relationship string, cfg *confi
 			}
 		} else {
 			fmt.Println("Invalid option:", opt)
+		}
+	}
+
+	// Prompt for quality after user has selected specific albums
+	if len(args) > 0 && relationship == "albums" {
+		err := PromptForQualityAfterSelection(dlAtmos, dlAAC, aacType)
+		if err != nil {
+			return nil, fmt.Errorf("quality selection cancelled")
 		}
 	}
 

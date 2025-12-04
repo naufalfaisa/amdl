@@ -123,12 +123,12 @@ func main() {
 			"{UrlArtistName}", config.LimitString(urlArtistName, Config.LimitMax),
 			"{ArtistId}", urlArtistID,
 		).Replace(Config.ArtistFolderFormat)
-		albumArgs, err := downloader.CheckArtist(os.Args[0], token, "albums", Config, artist_select)
+		albumArgs, err := downloader.CheckArtist(os.Args[0], token, "albums", Config, artist_select, &dl_atmos, &dl_aac, aac_type)
 		if err != nil {
 			fmt.Println("Failed to get artist albums.")
 			return
 		}
-		mvArgs, err := downloader.CheckArtist(os.Args[0], token, "music-videos", Config, artist_select)
+		mvArgs, err := downloader.CheckArtist(os.Args[0], token, "music-videos", Config, artist_select, &dl_atmos, &dl_aac, aac_type)
 		if err != nil {
 			fmt.Println("Failed to get artist music-videos.")
 		}
