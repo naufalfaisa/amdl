@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"main/pkg/ampapi"
-	"main/pkg/structs"
+	"github.com/naufalfaisa/amdl/pkg/ampapi"
+	"github.com/naufalfaisa/amdl/pkg/structs"
 
 	"github.com/AlecAivazis/survey/v2"
 )

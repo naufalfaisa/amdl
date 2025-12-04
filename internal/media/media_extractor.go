@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"main/pkg/structs"
+	"github.com/naufalfaisa/amdl/pkg/structs"
 
 	"github.com/grafov/m3u8"
 	"github.com/olekukonko/tablewriter"

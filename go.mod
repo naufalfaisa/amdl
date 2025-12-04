@@ -1,4 +1,4 @@
-module main
+module github.com/naufalfaisa/amdl
 
 go 1.23.1
 

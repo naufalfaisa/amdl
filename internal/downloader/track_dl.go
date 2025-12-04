@@ -9,17 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"main/internal/artwork"
-	"main/internal/config"
-	"main/internal/converter"
-	"main/internal/helpers"
-	"main/internal/media"
-	"main/internal/tagger"
-	"main/pkg/lyrics"
-	"main/pkg/runv2"
-	"main/pkg/runv3"
-	"main/pkg/structs"
-	"main/pkg/task"
+	"github.com/naufalfaisa/amdl/internal/artwork"
+	"github.com/naufalfaisa/amdl/internal/config"
+	"github.com/naufalfaisa/amdl/internal/converter"
+	"github.com/naufalfaisa/amdl/internal/helpers"
+	"github.com/naufalfaisa/amdl/internal/media"
+	"github.com/naufalfaisa/amdl/internal/tagger"
+	"github.com/naufalfaisa/amdl/pkg/lyrics"
+	"github.com/naufalfaisa/amdl/pkg/runv2"
+	"github.com/naufalfaisa/amdl/pkg/runv3"
+	"github.com/naufalfaisa/amdl/pkg/structs"
+	"github.com/naufalfaisa/amdl/pkg/task"
 )
 
 // RipTrack downloads and processes a single track

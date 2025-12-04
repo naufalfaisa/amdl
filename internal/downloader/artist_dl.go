@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"main/internal/config"
-	"main/pkg/structs"
+	"github.com/naufalfaisa/amdl/internal/config"
+	"github.com/naufalfaisa/amdl/pkg/structs"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"

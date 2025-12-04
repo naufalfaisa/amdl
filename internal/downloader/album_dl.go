@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"main/internal/artwork"
-	"main/internal/config"
-	"main/internal/helpers"
-	"main/internal/media"
-	"main/pkg/ampapi"
-	"main/pkg/structs"
-	"main/pkg/task"
+	"github.com/naufalfaisa/amdl/internal/artwork"
+	"github.com/naufalfaisa/amdl/internal/config"
+	"github.com/naufalfaisa/amdl/internal/helpers"
+	"github.com/naufalfaisa/amdl/internal/media"
+	"github.com/naufalfaisa/amdl/pkg/ampapi"
+	"github.com/naufalfaisa/amdl/pkg/structs"
+	"github.com/naufalfaisa/amdl/pkg/task"
 )
 
 // RipAlbum downloads an entire album

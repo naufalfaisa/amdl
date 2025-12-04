@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"main/pkg/structs"
+	"github.com/naufalfaisa/amdl/pkg/structs"
 
 	"gopkg.in/yaml.v2"
 )

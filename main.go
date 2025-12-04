@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"main/internal/config"
-	"main/internal/downloader"
-	"main/internal/helpers"
-	"main/internal/search"
-	"main/pkg/ampapi"
-	"main/pkg/structs"
+	"github.com/naufalfaisa/amdl/internal/config"
+	"github.com/naufalfaisa/amdl/internal/downloader"
+	"github.com/naufalfaisa/amdl/internal/helpers"
+	"github.com/naufalfaisa/amdl/internal/search"
+	"github.com/naufalfaisa/amdl/pkg/ampapi"
+	"github.com/naufalfaisa/amdl/pkg/structs"
 
 	"github.com/spf13/pflag"
 )

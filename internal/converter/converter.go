@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"main/pkg/structs"
-	"main/pkg/task"
+	"github.com/naufalfaisa/amdl/pkg/structs"
+	"github.com/naufalfaisa/amdl/pkg/task"
 )
 
 // Constants

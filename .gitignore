@@ -1,22 +1,30 @@
-# Ignore everything by default
-*
+# Binaries / executables
+/dist/
+/*.exe
 
-# Except important files
-!.gitignore
-!main.go
-!go.mod
-!go.sum
-!README.md
-!agent.js
-!agent-arm64.js
-!example.config.yaml
+# OS-specific files
+.DS_Store
+Thumbs.db
 
-# Keep directories
-!internal/
-!internal/**
-!utils/
-!utils/**
+# Go build artifacts
+*.test
+*.out
 
-# Include GitHub Actions workflow
+# Node / JS artifacts (jika ada node_modules)
+/node_modules/
+
+# Editor / IDE files
+.vscode/
+.idea/
+
+# Config / secret files (opsional, jika ingin tidak commit)
+config.yaml
+
+# Keep GitHub Actions workflows and source code
 !.github/
 !.github/**
+!*.go
+!*.mod
+!*.sum
+!README.md
+!*.js

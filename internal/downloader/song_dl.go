@@ -5,10 +5,10 @@ package downloader
 import (
 	"fmt"
 
-	"main/internal/config"
-	"main/internal/helpers"
-	"main/pkg/ampapi"
-	"main/pkg/structs"
+	"github.com/naufalfaisa/amdl/internal/config"
+	"github.com/naufalfaisa/amdl/internal/helpers"
+	"github.com/naufalfaisa/amdl/pkg/ampapi"
+	"github.com/naufalfaisa/amdl/pkg/structs"
 )
 
 // GetUrlSong converts song URL to album URL

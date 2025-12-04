@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"main/internal/helpers"
+	"github.com/naufalfaisa/amdl/internal/helpers"
 )
 
 const (
