@@ -11,17 +11,21 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
-	"github.com/itouakirai/mp4ff/mp4"
 	"github.com/grafov/m3u8"
+	"github.com/itouakirai/mp4ff/mp4"
 
 	"encoding/binary"
+
 	"github.com/schollz/progressbar/v3"
 
 	"main/utils/structs"
 )
+
 const prefetchKey = "skd://itunes.apple.com/P000000000/s1/e1"
+
 var ErrTimeout = errors.New("response timed out")
 
 type TimedResponseBody struct {
@@ -43,6 +47,20 @@ func (b *TimedResponseBody) Read(p []byte) (int, error) {
 	return n, err
 }
 
+type StreamPipe struct {
+	reader *io.PipeReader
+	writer *io.PipeWriter
+	done   chan error
+}
+
+func NewStreamPipe() *StreamPipe {
+	pr, pw := io.Pipe()
+	return &StreamPipe{
+		reader: pr,
+		writer: pw,
+		done:   make(chan error, 1),
+	}
+}
 
 func Run(adamId string, playlistUrl string, outfile string, Config structs.ConfigSet) error {
 	var err error
@@ -95,117 +113,39 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 	}
 	req.Header = header
 
-	var body io.Reader
 	client := &http.Client{Timeout: timeout}
-	if optstimeout > 0 {
-		// create the timer before calling Do so that the timeout covers TCP handshake,
-		// TLS handshake, sending the request and receiving HTTP headers
-		timer := time.AfterFunc(timeout, func() { cancel(ErrTimeout) })
-		do, err = client.Do(req)
-		if err != nil {
-			return err
-		}
-		defer do.Body.Close()
-		body = &TimedResponseBody{
-			timeout:   timeout,
-			timer:     timer,
-			threshold: 256,
-			body:      do.Body,
-		}
-	} else {
-		do, err = client.Do(req)
-		if err != nil {
-			return err
-		}
-		defer do.Body.Close()
-		if do.ContentLength < int64(Config.MaxMemoryLimit * 1024 * 1024) {
-			var buffer bytes.Buffer
-			bar := progressbar.NewOptions64(
-				do.ContentLength,
-				progressbar.OptionClearOnFinish(),
-				progressbar.OptionSetElapsedTime(false),
-				progressbar.OptionSetPredictTime(false),
-				progressbar.OptionShowElapsedTimeOnFinish(),
-				progressbar.OptionShowCount(),
-				progressbar.OptionEnableColorCodes(true),
-				progressbar.OptionShowBytes(true),
-				progressbar.OptionSetDescription("Downloading..."),
-				progressbar.OptionSetTheme(progressbar.Theme{
-					Saucer:        "",
-					SaucerHead:    "",
-					SaucerPadding: "",
-					BarStart:      "",
-					BarEnd:        "",
-				}),
-			)
-			io.Copy(io.MultiWriter(&buffer, bar), do.Body)
-			body = &buffer
-			fmt.Print("Downloaded\n")
-		} else {
-			body = do.Body
-		}
+	do, err = client.Do(req)
+	if err != nil {
+		return err
 	}
+	defer do.Body.Close()
 
-	var totalLen int64
-	totalLen = do.ContentLength
 	// connect to decryptor
-	//addr := fmt.Sprintf("127.0.0.1:10020")
 	addr := Config.DecryptM3u8Port
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
-	//fmt.Print("Decrypting...\n")
 	defer Close(conn)
 
-	err = downloadAndDecryptFile(conn, body, outfile, adamId, segments, totalLen, Config)
+	err = downloadAndDecryptConcurrent(conn, do.Body, outfile, adamId, segments, do.ContentLength, Config)
 	if err != nil {
 		return err
 	}
-	fmt.Print("Decrypted\n")
+
+	fmt.Print("Download & Decrypt completed\n")
 	return nil
 }
 
-func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
+func downloadAndDecryptConcurrent(conn io.ReadWriter, in io.Reader, outfile string,
 	adamId string, playlistSegments []*m3u8.MediaSegment, totalLen int64, Config structs.ConfigSet) error {
-	var buffer bytes.Buffer
-	var outBuf *bufio.Writer
+
 	MaxMemorySize := int64(Config.MaxMemoryLimit * 1024 * 1024)
-	inBuf := bufio.NewReader(in)
-	if totalLen <= MaxMemorySize {
-		outBuf = bufio.NewWriter(&buffer)
-	} else {
-		ofh, err := os.Create(outfile)
-		if err != nil {
-			return err
-		}
-		defer ofh.Close()
-		outBuf = bufio.NewWriter(ofh)
-	}
-	init, offset, err := ReadInitSegment(inBuf)
-	if err != nil {
-		return err
-	}
-	if init == nil {
-		return errors.New("no init segment found")
-	}
 
-	tracks, err := TransformInit(init)
-	if err != nil {
-		return err
-	}
-	err = sanitizeInit(init)
-	if err != nil {
-		// errors returned by sanitizeInit are non-fatal
-		fmt.Printf("Warning: unable to sanitize init completely: %s\n", err)
-	}
-	err = init.Encode(outBuf)
-	if err != nil {
-		return err
-	}
+	// Create a pipe for streaming data
+	pipe := NewStreamPipe()
 
-	// 'segment' in m3u8 == 'fragment' in mp4ff
-	//fmt.Println("Starting decryption...")
+	// Progress bar for the entire process
 	bar := progressbar.NewOptions64(totalLen,
 		progressbar.OptionClearOnFinish(),
 		progressbar.OptionSetElapsedTime(false),
@@ -214,7 +154,7 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 		progressbar.OptionShowCount(),
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionShowBytes(true),
-		progressbar.OptionSetDescription("Decrypting..."),
+		progressbar.OptionSetDescription("Downloading and decrypting..."),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "",
 			SaucerHead:    "",
@@ -223,69 +163,166 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 			BarEnd:        "",
 		}),
 	)
-	bar.Add64(int64(offset))
-	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-	for i := 0; ; i++ {
-		var frag *mp4.Fragment
-		rawoffset := offset
-		frag, offset, err = ReadNextFragment(inBuf, offset)
-		rawoffset = offset - rawoffset
-		if err != nil {
-			return err
-		}
-		if frag == nil {
-			// check offset against Content-Length?
-			break
-		}
-		// print progress
 
-		// if totalLen > 0 {
-		// 	fmt.Printf("%.2f%% of %d bytes\n", 100*float32(offset)/float32(totalLen), totalLen)
-		// }
-		segment := playlistSegments[i]
-		if segment == nil {
-			return errors.New("segment number out of sync")
-		}
-		key := segment.Key
-		if key != nil {
-			if i != 0 {
-				SwitchKeys(rw)
-			}
-			if key.URI == prefetchKey {
-				SendString(rw, "0")
-			} else {
-				SendString(rw, adamId)
-			}
-			SendString(rw, key.URI)
-		}
-		// flushes the buffer
-		err = DecryptFragment(frag, tracks, rw)
-		if err != nil {
-			return fmt.Errorf("decryptFragment: %w", err)
-		}
-		err = frag.Encode(outBuf)
-		if err != nil {
-			return err
-		}
-		bar.Add64(int64(rawoffset))
-	}
-	err = outBuf.Flush()
-	if err != nil {
-		return err
-	}
-	if totalLen <= MaxMemorySize {
-		// create output file
-		ofh, err := os.Create(outfile)
-		if err != nil {
-			return err
-		}
-		defer ofh.Close()
+	var wg sync.WaitGroup
+	var downloadErr, decryptErr error
 
-		_, err = ofh.Write(buffer.Bytes())
-		if err != nil {
-			return err
+	// Goroutine 1: Download
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer pipe.writer.Close()
+
+		buf := make([]byte, 32*1024) // 32KB buffer
+		for {
+			n, err := in.Read(buf)
+			if n > 0 {
+				_, writeErr := pipe.writer.Write(buf[:n])
+				if writeErr != nil {
+					downloadErr = fmt.Errorf("write error: %w", writeErr)
+					return
+				}
+				bar.Add(n) // Update progress
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				downloadErr = fmt.Errorf("download error: %w", err)
+				return
+			}
 		}
+	}()
+
+	// Goroutine 2: Decrypt
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		var buffer bytes.Buffer
+		var outBuf *bufio.Writer
+		inBuf := bufio.NewReader(pipe.reader)
+
+		if totalLen <= MaxMemorySize {
+			outBuf = bufio.NewWriter(&buffer)
+		} else {
+			ofh, err := os.Create(outfile)
+			if err != nil {
+				decryptErr = fmt.Errorf("create file error: %w", err)
+				return
+			}
+			defer ofh.Close()
+			outBuf = bufio.NewWriter(ofh)
+		}
+
+		// Read init segment
+		init, offset, err := ReadInitSegment(inBuf)
+		if err != nil {
+			decryptErr = fmt.Errorf("read init error: %w", err)
+			return
+		}
+		if init == nil {
+			decryptErr = errors.New("no init segment found")
+			return
+		}
+
+		tracks, err := TransformInit(init)
+		if err != nil {
+			decryptErr = fmt.Errorf("transform init error: %w", err)
+			return
+		}
+
+		err = sanitizeInit(init)
+		if err != nil {
+			fmt.Printf("Warning: unable to sanitize init completely: %s\n", err)
+		}
+
+		err = init.Encode(outBuf)
+		if err != nil {
+			decryptErr = fmt.Errorf("encode init error: %w", err)
+			return
+		}
+
+		// Process fragments
+		rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+		for i := 0; ; i++ {
+			frag, newOffset, err := ReadNextFragment(inBuf, offset)
+			offset = newOffset
+
+			if err != nil {
+				decryptErr = fmt.Errorf("read fragment error: %w", err)
+				return
+			}
+			if frag == nil {
+				break
+			}
+
+			segment := playlistSegments[i]
+			if segment == nil {
+				decryptErr = errors.New("segment number out of sync")
+				return
+			}
+
+			key := segment.Key
+			if key != nil {
+				if i != 0 {
+					SwitchKeys(rw)
+				}
+				if key.URI == prefetchKey {
+					SendString(rw, "0")
+				} else {
+					SendString(rw, adamId)
+				}
+				SendString(rw, key.URI)
+			}
+
+			err = DecryptFragment(frag, tracks, rw)
+			if err != nil {
+				decryptErr = fmt.Errorf("decrypt fragment error: %w", err)
+				return
+			}
+
+			err = frag.Encode(outBuf)
+			if err != nil {
+				decryptErr = fmt.Errorf("encode fragment error: %w", err)
+				return
+			}
+		}
+
+		err = outBuf.Flush()
+		if err != nil {
+			decryptErr = fmt.Errorf("flush error: %w", err)
+			return
+		}
+
+		// Write to file if using memory buffer
+		if totalLen <= MaxMemorySize {
+			ofh, err := os.Create(outfile)
+			if err != nil {
+				decryptErr = fmt.Errorf("create output file error: %w", err)
+				return
+			}
+			defer ofh.Close()
+
+			_, err = ofh.Write(buffer.Bytes())
+			if err != nil {
+				decryptErr = fmt.Errorf("write output error: %w", err)
+				return
+			}
+		}
+	}()
+
+	// Wait for both goroutines to complete
+	wg.Wait()
+
+	// Check for errors
+	if downloadErr != nil {
+		return downloadErr
 	}
+	if decryptErr != nil {
+		return decryptErr
+	}
+
 	return nil
 }
 
@@ -363,7 +400,7 @@ func parseMediaPlaylist(r io.ReadCloser) ([]*m3u8.MediaSegment, error) {
 	return mediaPlaylist.Segments, nil
 }
 
-//pasing
+// pasing
 func ReadInitSegment(r io.Reader) (*mp4.InitSegment, uint64, error) {
 	var offset uint64 = 0
 	init := mp4.NewMP4Init()
@@ -454,7 +491,8 @@ func TransformInit(init *mp4.InitSegment) (map[uint32]mp4.DecryptTrackInfo, erro
 	}
 	return tracks, nil
 }
-//remote
+
+// remote
 // Reset the loops on the script's end and close the connection
 func Close(conn io.WriteCloser) error {
 	defer conn.Close()
@@ -476,8 +514,6 @@ func SendString(conn io.Writer, uri string) error {
 	_, err = io.WriteString(conn, uri)
 	return err
 }
-
-
 
 func cbcsFullSubsampleDecrypt(data []byte, conn *bufio.ReadWriter) error {
 	// Drops 4 last bits -> multiple of 16
