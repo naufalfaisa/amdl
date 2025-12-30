@@ -32,6 +32,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare config file
+        run: |
+          cp example.config.yaml config.yaml
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:

@@ -1,102 +1,128 @@
-English / [简体中文](./README-CN.md)
+# Apple Music Downloader
 
-### ！！Must be installed first [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/)，And confirm [MP4Box](https://gpac.io/downloads/gpac-nightly-builds/) Correctly added to environment variables
+Forked from [zhaarey](https://github.com/zhaarey/apple-music-downloader)
 
-### Add features
+## Prerequisites
 
-1. Supports inline covers and LRC lyrics（Demand`media-user-token`，See the instructions at the end for how to get it）
-2. Added support for getting word-by-word and out-of-sync lyrics
-3. Support downloading singers `go run main.go https://music.apple.com/us/artist/taylor-swift/159260351` `--all-album` Automatically select all albums of the artist
-4. The download decryption part is replaced with Sendy McSenderson to decrypt while downloading, and solve the lack of memory when decrypting large files
-5. MV Download, installation required[mp4decrypt](https://www.bento4.com/downloads/)
-6. Add interactive search with arrow-key navigation `go run main.go --search [song/album/artist] "search_term"`
+- Install [(MP4Box)](https://gpac.io/downloads/gpac-nightly-builds/) and ensure it is added to your environment variables.
+- For MV download, install [mp4decrypt](https://www.bento4.com/downloads/).
+- A valid `media-user-token` is required for lyrics and AAC-LC downloads.
 
-### Special thanks to `chocomint` for creating `agent-arm64.js`
+## Features
 
-For acquisition`aac-lc` `MV` `lyrics` You must fill in the information with a subscription`media-user-token`
-
-- `alac (audio-alac-stereo)`
-- `ec3 (audio-atmos / audio-ec3)`
-- `aac (audio-stereo)`
-- `aac-lc (audio-stereo)`
-- `aac-binaural (audio-stereo-binaural)`
-- `aac-downmix (audio-stereo-downmix)`
-- `MV`
-
-# Apple Music ALAC / Dolby Atmos Downloader
-
-Original script by Sorrow. Modified by me to include some fixes and improvements.
-
-## Running with Docker
-
-1. Make sure the decryption program [wrapper](https://github.com/WorldObservationLog/wrapper) is running
-
-2. Start the downloader with Docker:
-   ```bash
-   # show help
-   docker run --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader --help
-
-   # start downloading some albums
-   docker run --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader https://music.apple.com/ru/album/children-of-forever/1443732441 
-
-   # start downloading single song
-   docker run --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader --song https://music.apple.com/ru/album/bass-folk-song/1443732441?i=1443732453
-
-   # start downloading select
-   docker run -it --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader --select https://music.apple.com/ru/album/children-of-forever/1443732441
-
-   # start downloading some playlists
-   docker run --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader https://music.apple.com/us/playlist/taylor-swift-essentials/pl.3950454ced8c45a3b0cc693c2a7db97b
-
-   # for dolby atmos
-   docker run --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader --atmos https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538
-   
-   # for aac
-   docker run --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader --aac https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538
-
-   # for see quality
-   docker run --network host -v ./downloads:/downloads ghcr.io/zhaarey/apple-music-downloader --debug https://music.apple.com/ru/album/miles-smiles/209407331
-   ```
-
-You can change `config.yaml` by mounting a volume:
-
-> **Note:** Before running the following command, make sure that a `config.yaml` file exists in your current directory. You can create your own, or copy the default one from the repository (if available). If `./config.yaml` does not exist, Docker will create an empty directory instead of a file, which will cause the container to fail.
+1. Supports inline album covers and LRC lyrics.
+2. Supports word-by-word and out-of-sync lyrics.
+3. Download all albums of an artist:
 ```bash
-docker run --network host -v ./downloads:/downloads -v ./config.yaml:/app/config.yaml ghcr.io/zhaarey/apple-music-downloader [args]
+go run main.go https://music.apple.com/us/artist/taylor-swift/159260351 --all-album
+```
+4. MV download support.
+5. Interactive search with arrow-key navigation:
+```bash
+go run main.go --search [song/album/artist] "search_term"
 ```
 
-## How to use
-1. Make sure the decryption program [wrapper](https://github.com/WorldObservationLog/wrapper) is running
-2. Start downloading some albums: `go run main.go https://music.apple.com/us/album/whenever-you-need-somebody-2022-remaster/1624945511`.
-3. Start downloading single song: `go run main.go --song https://music.apple.com/us/album/never-gonna-give-you-up-2022-remaster/1624945511?i=1624945512` or `go run main.go https://music.apple.com/us/song/you-move-me-2022-remaster/1624945520`.
-4. Start downloading select: `go run main.go --select https://music.apple.com/us/album/whenever-you-need-somebody-2022-remaster/1624945511` input numbers separated by spaces.
-5. Start downloading some playlists: `go run main.go https://music.apple.com/us/playlist/taylor-swift-essentials/pl.3950454ced8c45a3b0cc693c2a7db97b` or `go run main.go https://music.apple.com/us/playlist/hi-res-lossless-24-bit-192khz/pl.u-MDAWvpjt38370N`.
-6. For dolby atmos: `go run main.go --atmos https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`.
-7. For aac: `go run main.go --aac https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`.
-8. For see quality: `go run main.go --debug https://music.apple.com/us/album/1989-taylors-version-deluxe/1713845538`.
+## Audio Formats Supported:
 
-[Chinese tutorial - see Method 3 for details](https://telegra.ph/Apple-Music-Alac高解析度无损音乐下载教程-04-02-2)
+- `alac` – ALAC stereo
+- `ec3` – Dolby Atmos / EC3
+- `aac` – Stereo AAC
+- `aac-lc` – Stereo AAC-LC
+- `aac-binaural` – Binaural AAC
+- `aac-downmix` – Downmixed stereo AAC
+- `MV` – Music videos
 
-## Downloading lyrics
+## Usage
 
-1. Open [Apple Music](https://music.apple.com) and log in
-2. Open the Developer tools, Click `Application -> Storage -> Cookies -> https://music.apple.com`
-3. Find the cookie named `media-user-token` and copy its value
-4. Paste the cookie value obtained in step 3 into the setting called "media-user-token" in config.yaml and save it
-5. Start the script as usual
+Ensure the decryption wrapper is running: [WorldObservationLog/wrapper](https://github.com/WorldObservationLog/wrapper.git)
 
-## Get translation and pronunciation lyrics (Beta)
+```bash
+# Download an album: 
+go run main.go <album_url>
 
-1. Open [Apple Music](https://beta.music.apple.com) and log in.
-2. Open the Developer tools, click `Network` tab.
-3. Search a song which is available for translation and pronunciation lyrics (recommend K-Pop songs).
-4. Press Ctrl+R and let Developer tools sniff network data.
-5. Play a song and then click lyric button, sniff will show a data called `syllable-lyrics`.
-6. Stop sniff (small red circles button on top left), then click `Fetch/XHR` tabs.
-7. Click `syllable-lyrics` data, see requested URL.
-8. Find this line `.../syllable-lyrics?l=<copy all the language value from here>&extend=ttmlLocalizations`.
-9. Paste the language value obtained in step 8 into the config.yaml and save it.
-10. If don't need pronunciation, do this `...%5D=<remove this value>&extend...` on config.yaml and save it.
-11. Start the script as usual.
+# Download a single song:
+go run main.go --song <song_url>
 
-Noted: These features are only in beta version right now.
+# Select specific tracks from an album:
+go run main.go --select <album_url>
+
+# Download playlists:
+go run main.go <playlist_url>
+
+# Dolby Atmos download:
+go run main.go --atmos <album_url>
+
+# AAC download:
+go run main.go --aac <album_url>
+
+# Debug/quality check:
+go run main.go --debug <album_url>
+```
+
+## Downloading Lyrics
+1. Log in to Apple Music.
+2. Open Developer Tools → Application → Storage → Cookies → `https://3. music.apple.com.`
+3. Copy the media-user-token cookie value.
+4. Paste the value into `config.yaml` under `media-user-token`.
+5. Start the script as usual.
+
+## Translation and Pronunciation Lyrics (Beta)
+
+1. Log in to Apple Music Beta.
+2. Open Developer Tools → Network tab.
+3. Play a song with translation/pronunciation support.
+4. Sniff network requests (syllable-lyrics).
+5. Copy the language value and paste into config.yaml.
+6. Remove pronunciation if not needed.
+7. Start the script as usual.
+**Note:** These features are currently in beta.
+
+## Configurable Options via `config.yaml`
+
+### Authentication
+- `media-user-token` – Needed for lyrics or AAC-LC downloads.
+- `authorization-token` – Usually no change needed; automatically retrieves token.
+
+### Language & Lyrics
+- `language` – Supported language per storefront.
+- `lrc-type` – Choose between `lyrics` or `syllable-lyrics`.
+- `lrc-format` – Options: `lrc`, `ttml`.
+- `embed-lrc` – Embed lyrics in audio file.
+- `save-lrc-file` – Save lyrics as separate file.
+
+### Cover & Artwork
+- `save-artist-cover` – Save artist cover images.
+- `save-animated-artwork` / `emby-animated-artwork` – Requires ffmpeg.
+- `embed-cover` – Embed album cover in audio file.
+- `cover-size` / `cover-format` – Control size and format.
+
+### Download Folders
+- `alac-save-folder`, `atmos-save-folder`, `aac-save-folder` – Output folders for each format.
+
+### Memory & Port
+- `max-memory-limit` – Maximum memory usage in MB.
+- `decrypt-m3u8-port`, `get-m3u8-port` – Local ports for streaming/decryption.
+- `get-m3u8-from-device`, `get-m3u8-mode` – Device mode and quality.
+
+### Audio Settings
+- `aac-type` – Choose AAC format.
+- `alac-max` – Max sample rate.
+- `atmos-max` – Max bitrate.
+- `limit-max` – Maximum number of tracks to download.
+
+### File & Folder Naming
+- `album-folder-format`, `playlist-folder-format`, `song-file-format`, `artist-folder-format`.
+
+### Explicit / Clean / Master Tags
+- `explicit-choice`, `clean-choice`, `apple-master-choice`.
+
+### Playlist Options
+- `use-songinfo-for-playlist`, `dl-albumcover-for-playlist`.
+
+### Music Video
+- `mv-audio-type`, `mv-max` – Audio type and max resolution for MV download.
+
+### Post-download Conversion
+- `convert-after-download`, `convert-format`, `convert-keep-original`.
+- `convert-skip-if-source-matches`, `ffmpeg-path`, `convert-extra-args`.
+- `convert-warn-lossy-to-lossless`, `convert-skip-lossy-to-lossless`.

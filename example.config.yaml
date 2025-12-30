@@ -1,0 +1,70 @@
+media-user-token: "your-media-user-token"      # Needed if obtaining lyrics or AAC-LC
+authorization-token: "your-authorization-token" # Automatically retrieves token; usually no change needed
+language: ""                                    # Supported language per storefront: https://gist.github.com/itouakirai/c8ba9df9dc65bd300094103b058731d0
+
+# Lyrics settings
+lrc-type: "lyrics"       # Options: lyrics, syllable-lyrics
+lrc-format: "lrc"        # Options: lrc, ttml
+embed-lrc: true
+save-lrc-file: false
+
+# Cover settings
+save-artist-cover: false
+save-animated-artwork: false      # Requires ffmpeg
+emby-animated-artwork: false      # Requires ffmpeg
+embed-cover: true
+cover-size: 5000x5000
+cover-format: "jpg"               # Options: jpg, png, original
+
+# Download folders
+alac-save-folder: "./downloads/ALAC"
+atmos-save-folder: "./downloads/Atmos"
+aac-save-folder: "./downloads/AAC"
+mv-save-folder: "./downloads/MV"
+
+# Memory & port settings
+max-memory-limit: 256              # MB
+decrypt-m3u8-port: "127.0.0.1:10020"
+get-m3u8-port: "127.0.0.1:20020"
+get-m3u8-from-device: true
+get-m3u8-mode: "hires"             # Options: all, hires
+
+# Audio settings
+aac-type: "aac-lc"                 # Options: aac-lc, aac, aac-binaural, aac-downmix
+alac-max: 192000                    # Max sample rate: 192000, 96000, 48000, 44100
+atmos-max: 2768                     # Max bitrate: 2768, 2448
+limit-max: 200
+
+# Folder & file naming formats
+album-folder-format: "{AlbumName}"
+playlist-folder-format: "{PlaylistName}"
+song-file-format: "{SongNumer}. {SongName}"
+artist-folder-format: "{UrlArtistName}"      # Set "" to disable artist folder
+
+# Explicit / clean / master tags
+explicit-choice: "[E]"
+clean-choice: "[C]"
+apple-master-choice: "[M]"
+
+# Playlist metadata
+use-songinfo-for-playlist: false
+dl-albumcover-for-playlist: false
+
+# Music video download
+mv-audio-type: "atmos"       # Options: atmos, ac3, aac
+mv-max: 2160                  # Max resolution
+
+# Storefront for searching (must match account)
+storefront: "enter your account storefront"
+
+# Post-download conversion
+convert-after-download: false
+convert-format: "flac"                # Options: flac, mp3, opus, wav, copy (no re-encode)
+convert-keep-original: false
+convert-skip-if-source-matches: true
+ffmpeg-path: "ffmpeg"
+convert-extra-args: ""                # Advanced additional args
+
+# Conversion warnings & behavior
+convert-warn-lossy-to-lossless: true
+convert-skip-lossy-to-lossless: true
