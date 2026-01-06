@@ -7,7 +7,6 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build-windows:
     runs-on: windows-latest
     steps:
@@ -17,23 +16,21 @@ jobs:
       with:
         go-version: '1.23.1'
     - name: Prepare config file
-      run: |
-        cp example.config.yaml config.yaml
+      run: cp example.config.yaml config.yaml
     - name: Build
-      run: |
-        go build -o main.exe -v ./main.go
+      run: go build -o main.exe -v ./cmd/amdl/main.go
     - name: Create a new directory and copy files
       run: |
-        mkdir -p alac
+        mkdir alac
         cp agent.js alac/
         cp agent-arm64.js alac/
         cp config.yaml alac/
         cp README.md alac/
         cp main.exe alac/
-    - name: Upload apple-music-alac-atmos-downloader
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: apple-music-alac-atmos-downloader-windows
+        name: amdl-windows
         path: alac/*
 
   build-linux:
@@ -45,11 +42,9 @@ jobs:
       with:
         go-version: '1.23.1'
     - name: Prepare config file
-      run: |
-        cp example.config.yaml config.yaml
+      run: cp example.config.yaml config.yaml
     - name: Build
-      run: |
-        go build -o main -v ./main.go
+      run: go build -o main -v ./cmd/amdl/main.go
     - name: Create a new directory and copy files
       run: |
         mkdir -p alac
@@ -58,10 +53,10 @@ jobs:
         cp config.yaml alac/
         cp README.md alac/
         cp main alac/
-    - name: Upload apple-music-alac-atmos-downloader
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: apple-music-alac-atmos-downloader-linux
+        name: amdl-linux
         path: alac/*
 
   build-macos:
@@ -73,11 +68,9 @@ jobs:
       with:
         go-version: '1.23.1'
     - name: Prepare config file
-      run: |
-        cp example.config.yaml config.yaml
+      run: cp example.config.yaml config.yaml
     - name: Build
-      run: |
-        go build -o main -v ./main.go
+      run: go build -o main -v ./cmd/amdl/main.go
     - name: Create a new directory and copy files
       run: |
         mkdir -p alac
@@ -86,8 +79,8 @@ jobs:
         cp config.yaml alac/
         cp README.md alac/
         cp main alac/
-    - name: Upload apple-music-alac-atmos-downloader
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: apple-music-alac-atmos-downloader-macos
+        name: amdl-macos
         path: alac/*
