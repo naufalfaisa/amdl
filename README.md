@@ -1,12 +1,26 @@
 # Apple Music Downloader
 
-Forked from [zhaarey](https://github.com/zhaarey/apple-music-downloader)
+Forked from [zhaarey/apple-music-downloader](https://github.com/zhaarey/apple-music-downloader)
 
 ## Prerequisites
 
 - Install [(MP4Box)](https://gpac.io/downloads/gpac-nightly-builds/) and ensure it is added to your environment variables.
 - For MV download, install [mp4decrypt](https://www.bento4.com/downloads/).
 - A valid `media-user-token` is required for lyrics and AAC-LC downloads.
+
+### Decryption Wrapper (Required for ALAC / Dolby Atmos) 
+
+For ALAC and Dolby Atmos downloads, the downloader requires a running instance of [WorldObservationLog/wrapper](https://github.com/WorldObservationLog/wrapper) to handle DRM key decryption. 
+
+The easiest way to run it is using Docker:
+```bash
+# 1. Pull the image
+docker pull ghcr.io/worldobservationlog/wrapper:latest
+
+# 2. Run the container (default port: 10020)
+docker run -d --name am-wrapper -p 10020:10020 ghcr.io/worldobservationlog/wrapper:latest
+```
+**Note:** Ensure the port in config.yaml matches the mapped port above (10020).
 
 ## Features
 
@@ -34,7 +48,8 @@ go run main.go --search [song/album/artist] "search_term"
 
 ## Usage
 
-Ensure the decryption wrapper is running: [WorldObservationLog/wrapper](https://github.com/WorldObservationLog/wrapper.git)
+Ensure the decryption wrapper is running before downloading ALAC or Dolby Atmos content:  
+[WorldObservationLog/wrapper](https://github.com/WorldObservationLog/wrapper)
 
 ```bash
 # Download an album: 
@@ -60,8 +75,9 @@ go run main.go --debug <album_url>
 ```
 
 ## Downloading Lyrics
+
 1. Log in to Apple Music.
-2. Open Developer Tools → Application → Storage → Cookies → `https://3. music.apple.com.`
+2. Open Developer Tools → Application → Storage → Cookies → `https://3.music.apple.com`
 3. Copy the media-user-token cookie value.
 4. Paste the value into `config.yaml` under `media-user-token`.
 5. Start the script as usual.
@@ -80,10 +96,12 @@ go run main.go --debug <album_url>
 ## Configurable Options via `config.yaml`
 
 ### Authentication
+
 - `media-user-token` – Needed for lyrics or AAC-LC downloads.
 - `authorization-token` – Usually no change needed; automatically retrieves token.
 
 ### Language & Lyrics
+
 - `language` – Supported language per storefront.
 - `lrc-type` – Choose between `lyrics` or `syllable-lyrics`.
 - `lrc-format` – Options: `lrc`, `ttml`.
@@ -91,38 +109,49 @@ go run main.go --debug <album_url>
 - `save-lrc-file` – Save lyrics as separate file.
 
 ### Cover & Artwork
+
 - `save-artist-cover` – Save artist cover images.
-- `save-animated-artwork` / `emby-animated-artwork` – Requires ffmpeg.
+- `save-animated-artwork` / `embed-animated-artwork` – Requires ffmpeg.
 - `embed-cover` – Embed album cover in audio file.
 - `cover-size` / `cover-format` – Control size and format.
 
 ### Download Folders
+
 - `alac-save-folder`, `atmos-save-folder`, `aac-save-folder` – Output folders for each format.
 
 ### Memory & Port
+
 - `max-memory-limit` – Maximum memory usage in MB.
 - `decrypt-m3u8-port`, `get-m3u8-port` – Local ports for streaming/decryption.
 - `get-m3u8-from-device`, `get-m3u8-mode` – Device mode and quality.
 
 ### Audio Settings
+
 - `aac-type` – Choose AAC format.
 - `alac-max` – Max sample rate.
 - `atmos-max` – Max bitrate.
 - `limit-max` – Maximum number of tracks to download.
 
 ### File & Folder Naming
+
 - `album-folder-format`, `playlist-folder-format`, `song-file-format`, `artist-folder-format`.
 
 ### Explicit / Clean / Master Tags
+
 - `explicit-choice`, `clean-choice`, `apple-master-choice`.
 
 ### Playlist Options
+
 - `use-songinfo-for-playlist`, `dl-albumcover-for-playlist`.
 
 ### Music Video
+
 - `mv-audio-type`, `mv-max` – Audio type and max resolution for MV download.
 
 ### Post-download Conversion
+
 - `convert-after-download`, `convert-format`, `convert-keep-original`.
 - `convert-skip-if-source-matches`, `ffmpeg-path`, `convert-extra-args`.
 - `convert-warn-lossy-to-lossless`, `convert-skip-lossy-to-lossless`.
+
+
