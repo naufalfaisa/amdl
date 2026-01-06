@@ -25,8 +25,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/grafov/m3u8"
-	"github.com/schollz/progressbar/v3"
 )
 
 type PlaybackLicense struct {
@@ -232,25 +232,16 @@ func extsong(b string) bytes.Buffer {
 	}
 	defer resp.Body.Close()
 	var buffer bytes.Buffer
-	bar := progressbar.NewOptions64(
-		resp.ContentLength,
-		progressbar.OptionClearOnFinish(),
-		progressbar.OptionSetElapsedTime(false),
-		progressbar.OptionSetPredictTime(false),
-		progressbar.OptionShowElapsedTimeOnFinish(),
-		progressbar.OptionShowCount(),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionShowBytes(true),
-		progressbar.OptionSetDescription("Downloading..."),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "",
-			SaucerHead:    "",
-			SaucerPadding: "",
-			BarStart:      "",
-			BarEnd:        "",
-		}),
+	bar := pb.New64(resp.ContentLength)
+	bar.SetTemplateString(
+		`Downloading... {{percent .}} ({{counters . }}) {{speed . }} ETA {{etime .}}`,
 	)
-	io.Copy(io.MultiWriter(&buffer, bar), resp.Body)
+	bar.Set(pb.Bytes, true)
+	bar.Set(pb.CleanOnFinish, true)
+	bar.Start()
+	barReader := bar.NewProxyReader(resp.Body)
+	io.Copy(&buffer, barReader)
+	bar.Finish()
 	return buffer
 }
 func Run(adamId string, trackpath string, authtoken string, mutoken string, mvmode bool, serverUrl string) (string, error) {
@@ -380,7 +371,7 @@ func downloadSegment(url string, index int, wg *sync.WaitGroup, segmentsChan cha
 }
 
 // fileWriter 从 Channel 接收分段并按顺序写入文件
-func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.Writer, totalSegments int) {
+func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.Writer, totalSegments int, bar *pb.ProgressBar) {
 	defer wg.Done()
 
 	// 缓冲区，用于存放乱序到达的分段
@@ -392,9 +383,12 @@ func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.W
 		// 检查收到的分段是否是当前期望的
 		if segment.Index == nextIndex {
 			//fmt.Printf("写入分段 %d\n", segment.Index)
-			_, err := outputFile.Write(segment.Data)
+			n, err := outputFile.Write(segment.Data)
 			if err != nil {
 				fmt.Printf("错误(分段 %d): 写入文件失败: %v\n", segment.Index, err)
+			}
+			if bar != nil {
+				bar.Add(n)
 			}
 			nextIndex++
 
@@ -406,9 +400,12 @@ func fileWriter(wg *sync.WaitGroup, segmentsChan <-chan Segment, outputFile io.W
 				}
 
 				//fmt.Printf("从缓冲区写入分段 %d\n", nextIndex)
-				_, err := outputFile.Write(data)
+				n, err := outputFile.Write(data)
 				if err != nil {
 					fmt.Printf("错误(分段 %d): 从缓冲区写入文件失败: %v\n", nextIndex, err)
+				}
+				if bar != nil {
+					bar.Add(n)
 				}
 				// 从缓冲区删除已写入的分段，释放内存
 				delete(segmentBuffer, nextIndex)
@@ -449,12 +446,17 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 	client := &http.Client{}
 
 	// 初始化进度条
-	bar := progressbar.DefaultBytes(-1, "Downloading...")
-	barWriter := io.MultiWriter(tempFile, bar)
+	bar := pb.New64(0)
+	bar.SetTemplateString(
+		`Downloading... {{percent .}} ({{counters . }}) {{speed . }} ETA {{etime .}}`,
+	)
+	bar.Set(pb.Bytes, true)
+	bar.Set(pb.CleanOnFinish, true)
+	bar.Start()
 
 	// 启动写入 Goroutine
 	writerWg.Add(1)
-	go fileWriter(&writerWg, segmentsChan, barWriter, len(urls))
+	go fileWriter(&writerWg, segmentsChan, tempFile, len(urls), bar)
 
 	// 启动下载 Goroutines
 	for i, url := range urls {
@@ -476,6 +478,7 @@ func ExtMvData(keyAndUrls string, savePath string) error {
 
 	// 等待写入 Goroutine 完成所有写入和缓冲处理
 	writerWg.Wait()
+	bar.Finish()
 
 	// 显式关闭文件（defer会再次调用，但重复关闭是安全的）
 	if err := tempFile.Close(); err != nil {

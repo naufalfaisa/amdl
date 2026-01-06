@@ -18,7 +18,7 @@ import (
 
 	"encoding/binary"
 
-	"github.com/schollz/progressbar/v3"
+	"github.com/cheggaaa/pb/v3"
 
 	"main/internal/structs"
 )
@@ -122,25 +122,18 @@ func Run(adamId string, playlistUrl string, outfile string, Config structs.Confi
 		defer do.Body.Close()
 		if do.ContentLength < int64(Config.MaxMemoryLimit*1024*1024) {
 			var buffer bytes.Buffer
-			bar := progressbar.NewOptions64(
-				do.ContentLength,
-				progressbar.OptionClearOnFinish(),
-				progressbar.OptionSetElapsedTime(false),
-				progressbar.OptionSetPredictTime(false),
-				progressbar.OptionShowElapsedTimeOnFinish(),
-				progressbar.OptionShowCount(),
-				progressbar.OptionEnableColorCodes(true),
-				progressbar.OptionShowBytes(true),
-				progressbar.OptionSetDescription("Downloading..."),
-				progressbar.OptionSetTheme(progressbar.Theme{
-					Saucer:        "",
-					SaucerHead:    "",
-					SaucerPadding: "",
-					BarStart:      "",
-					BarEnd:        "",
-				}),
+			bar := pb.New64(do.ContentLength)
+
+			bar.SetTemplateString(
+				`Downloading... {{percent .}} ({{counters . }}) {{speed . }} ETA {{etime .}}`,
 			)
-			io.Copy(io.MultiWriter(&buffer, bar), do.Body)
+
+			bar.Set(pb.Bytes, true)
+			bar.Set(pb.CleanOnFinish, true)
+			bar.Start()
+			barReader := bar.NewProxyReader(do.Body)
+			io.Copy(&buffer, barReader)
+			bar.Finish()
 			body = &buffer
 			fmt.Print("Downloaded\n")
 		} else {
@@ -208,23 +201,13 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 
 	// 'segment' in m3u8 == 'fragment' in mp4ff
 	//fmt.Println("Starting decryption...")
-	bar := progressbar.NewOptions64(totalLen,
-		progressbar.OptionClearOnFinish(),
-		progressbar.OptionSetElapsedTime(false),
-		progressbar.OptionSetPredictTime(false),
-		progressbar.OptionShowElapsedTimeOnFinish(),
-		progressbar.OptionShowCount(),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionShowBytes(true),
-		progressbar.OptionSetDescription("Decrypting..."),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "",
-			SaucerHead:    "",
-			SaucerPadding: "",
-			BarStart:      "",
-			BarEnd:        "",
-		}),
+	bar := pb.New64(totalLen)
+	bar.SetTemplateString(
+		`Decrypting... {{percent .}} ({{counters . }}) {{speed . }} ETA {{etime .}}`,
 	)
+	bar.Set(pb.Bytes, true)
+	bar.Set(pb.CleanOnFinish, true)
+	bar.Start()
 	bar.Add64(int64(offset))
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	for i := 0; ; i++ {
@@ -271,6 +254,7 @@ func downloadAndDecryptFile(conn io.ReadWriter, in io.Reader, outfile string,
 		}
 		bar.Add64(int64(rawoffset))
 	}
+	bar.Finish()
 	err = outBuf.Flush()
 	if err != nil {
 		return err
